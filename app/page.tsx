@@ -6,30 +6,53 @@ type SummaryResponse = {
   ticker: string;
   price: number;
   changePercent: number;
-  // add more fields when you know your router response shape
 };
 
-const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL;
+// ------------------------------
+// 1. Lookup fetcher (client → Next API → lookup backend)
+// ------------------------------
+async function fetchLookup(ticker: string, period: string, interval: string) {
+  const res = await fetch("/api/lookup", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ticker, period, interval }),
+  });
 
+  if (!res.ok) {
+    throw new Error(`Lookup failed: ${res.status}`);
+  }
+
+  return res.json(); // full lookup JSON
+}
+
+// ------------------------------
+// 2. Main Page Component
+// ------------------------------
 export default function HomePage() {
   const [ticker, setTicker] = useState("");
   const [data, setData] = useState<SummaryResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // ------------------------------
+  // 3. Search handler
+  // ------------------------------
   async function handleSearch() {
-    if (!ticker || !API_BASE) return;
+    if (!ticker) return;
+
     setLoading(true);
     setError(null);
     setData(null);
 
     try {
-      const res = await fetch(
-        `${API_BASE}/api/summary?ticker=${encodeURIComponent(ticker)}`
-      );
-      if (!res.ok) throw new Error("Request failed");
-      const json = (await res.json()) as SummaryResponse;
-      setData(json);
+      const json = await fetchLookup(ticker, "1d", "5m");
+
+      // Map lookup fields to your UI fields
+      setData({
+        ticker: json.symbol,
+        price: json.lastPrice,
+        changePercent: json.period_return_pct ?? 0,
+      });
     } catch (e: any) {
       setError(e.message ?? "Something went wrong");
     } finally {
@@ -42,10 +65,11 @@ export default function HomePage() {
       <header className="w-full max-w-5xl flex flex-col gap-2">
         <h1 className="text-3xl font-bold">MarketMind Dashboard</h1>
         <p className="text-sm text-slate-400">
-          Enter a ticker to fetch combined data from the router service on Azure.
+          Enter a ticker to fetch data from the lookup service.
         </p>
       </header>
 
+      {/* Search bar */}
       <section className="w-full max-w-5xl flex gap-3">
         <input
           className="flex-1 rounded-md bg-slate-900 border border-slate-700 px-3 py-2 text-sm outline-none focus:border-sky-500"
@@ -62,6 +86,7 @@ export default function HomePage() {
         </button>
       </section>
 
+      {/* Errors */}
       <section className="w-full max-w-5xl">
         {error && (
           <div className="mb-4 rounded-md border border-red-500 bg-red-950/40 px-4 py-2 text-sm text-red-200">
@@ -75,14 +100,17 @@ export default function HomePage() {
           </p>
         )}
 
+        {/* Results */}
         {data && (
           <div className="grid gap-4 md:grid-cols-2">
+
             {/* Summary card */}
             <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
               <h2 className="text-lg font-semibold mb-2">
                 {data.ticker} overview
               </h2>
               <p className="text-2xl font-bold">${data.price}</p>
+
               <p
                 className={
                   "mt-1 text-sm " +
@@ -96,27 +124,28 @@ export default function HomePage() {
               </p>
             </div>
 
-            {/* Placeholders for other services */}
+            {/* Placeholders */}
             <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
               <h2 className="text-lg font-semibold mb-2">SMA / EMA</h2>
               <p className="text-sm text-slate-400">
-                Later: call router endpoint for indicators and render a chart.
+                Later: pull indicator data and render a chart.
               </p>
             </div>
 
             <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
               <h2 className="text-lg font-semibold mb-2">News & sentiment</h2>
               <p className="text-sm text-slate-400">
-                Later: show headlines from the news-sentiment service.
+                Later: display news headlines from the news-sentiment service.
               </p>
             </div>
 
             <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
               <h2 className="text-lg font-semibold mb-2">Sector analysis</h2>
               <p className="text-sm text-slate-400">
-                Later: show sector trends from the sector-analysis service.
+                Later: show sector insights from the sector-analysis service.
               </p>
             </div>
+
           </div>
         )}
       </section>
