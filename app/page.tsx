@@ -18,12 +18,26 @@ async function fetchLookup(ticker: string, period: string, interval: string) {
     body: JSON.stringify({ ticker, period, interval }),
   });
 
+  const text = await res.text();
+
   if (!res.ok) {
-    throw new Error(`Lookup failed: ${res.status}`);
+    // Try to show the error JSON from the route
+    try {
+      const errJson = JSON.parse(text);
+      throw new Error(
+        errJson.error ||
+          `Lookup failed (${errJson.source ?? "unknown"}): ${JSON.stringify(
+            errJson
+          )}`
+      );
+    } catch {
+      throw new Error(`Lookup failed: ${res.status} – ${text.slice(0, 200)}`);
+    }
   }
 
-  return res.json(); // full lookup JSON
+  return JSON.parse(text);
 }
+
 
 // ------------------------------
 // 2. Main Page Component
