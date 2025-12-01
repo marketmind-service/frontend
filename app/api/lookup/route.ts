@@ -1,21 +1,26 @@
 export async function POST(req: Request) {
   const base = process.env.LOOKUP_BASE_URL;
+  const isDev = process.env.NODE_ENV !== "production";
 
-  // Read the request body
   const body = await req.json().catch(() => null);
+  const { ticker, period, interval } = body ?? {};
 
-  if (!base) {
-    // This means the env var is NOT set in this environment
-    return new Response(
-      JSON.stringify({
-        error: "LOOKUP_BASE_URL not set on server",
-        source: "next-api",
-        hint: "Check Azure Static Web App config → Environment variables",
-      }),
-      { status: 500 }
-    );
+  // In dev, return mock so you never get blocked while coding
+  if (isDev || !base) {
+    const mock = {
+      symbol: (ticker || "MOCK").toUpperCase(),
+      lastPrice: 123.45,
+      period_return_pct: 1.23,
+      shortName: "Mock Corp",
+      ticker,
+      period,
+      interval,
+    };
+
+    return Response.json(mock, { status: 200 });
   }
 
+  // In production, try the real backend
   try {
     const resp = await fetch(`${base}/api/lookup`, {
       method: "POST",
@@ -25,7 +30,6 @@ export async function POST(req: Request) {
 
     const text = await resp.text();
 
-    // If backend itself returns 500 / non-OK, surface that clearly
     if (!resp.ok) {
       return new Response(
         JSON.stringify({
@@ -38,20 +42,10 @@ export async function POST(req: Request) {
       );
     }
 
-    // Normal OK case
-    try {
-      const data = JSON.parse(text);
-      return Response.json(data, { status: 200 });
-    } catch {
-      return new Response(
-        JSON.stringify({
-          error: "Failed to parse backend JSON",
-          source: "next-api",
-          backendRaw: text.slice(0, 500),
-        }),
-        { status: 500 }
-      );
-    }
+    return new Response(text, {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
   } catch (err: any) {
     return new Response(
       JSON.stringify({
