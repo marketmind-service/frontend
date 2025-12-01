@@ -1,46 +1,57 @@
 // app/api/lookup/route.ts
 
+type LookupRequestBody = {
+  ticker?: string;
+  period?: string;
+  interval?: string;
+};
+
 export async function POST(req: Request) {
   const base = process.env.LOOKUP_BASE_URL;
   const isDev = process.env.NODE_ENV !== "production";
 
-  const body = (await req.json().catch(() => null)) as
-    | { ticker?: string; company?: string; period?: string; interval?: string }
-    | null;
+  const body = (await req.json().catch(() => null)) as LookupRequestBody | null;
+  const ticker = body?.ticker?.toString().trim();
+  const period = body?.period;
+  const interval = body?.interval;
 
-  const { ticker, company, period, interval } = body ?? {};
-
-  // what we will actually send to the backend
-  const companyId = (company ?? ticker ?? "").toString().trim();
-
-  if (!companyId) {
+  if (!ticker) {
     return new Response(
-      JSON.stringify({ error: "ticker/company is required" }),
+      JSON.stringify({ error: "ticker is required" }),
       { status: 400 }
     );
   }
 
-  // In dev, return mock so you never get blocked while coding
-  if (isDev || !base) {
+  // In dev, if LOOKUP_BASE_URL is missing, return a mock so you can still code
+  if (isDev && !base) {
     const mock = {
-      symbol: companyId.toUpperCase(),
+      symbol: ticker.toUpperCase(),
       lastPrice: 123.45,
       period_return_pct: 1.23,
       shortName: "Mock Corp",
-      company: companyId,
+      company: ticker,
       period,
       interval,
+      tail_ohlcv: null,
     };
 
     return Response.json(mock, { status: 200 });
   }
 
-  // In production, call the real FastAPI backend:
-  //   POST {LOOKUP_BASE_URL}/api/lookup
-  //   body: { company, period, interval }
+  if (!base) {
+    return new Response(
+      JSON.stringify({
+        error: "LOOKUP_BASE_URL not set on server",
+        source: "next-api",
+      }),
+      { status: 500 }
+    );
+  }
+
   try {
+    // Backend expects { company, period, interval }
     const backendBody = {
-      company: companyId,
+      company: ticker,
       period,
       interval,
     };
