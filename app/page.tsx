@@ -3,13 +3,6 @@
 import { useState } from "react";
 import Link from "next/link";
 
-type SummaryResponse = {
-  ticker: string;
-  name: string;
-  price: number;
-  changePercent: number;
-};
-
 type TopMover = {
   symbol: string;
   name: string;
@@ -17,7 +10,18 @@ type TopMover = {
   changePct: number;
 };
 
-// Mock data – later replace with market-movers microservice
+type LlmSource = {
+  title: string;
+  url?: string;
+  type?: string;
+};
+
+type LlmResponse = {
+  answer: string;
+  sources?: LlmSource[];
+};
+
+// Mock data – later replace with sector-rotation / market-movers microservice
 const topGainers: TopMover[] = [
   { symbol: "SMX", name: "SMX (Security Matters)", price: 61.04, changePct: 250.8 },
   { symbol: "NVDA", name: "NVIDIA Corp", price: 123.45, changePct: 8.2 },
@@ -34,66 +38,36 @@ const topLosers: TopMover[] = [
   { symbol: "RNDM", name: "Random Co", price: 5.4, changePct: -6.5 },
 ];
 
-// ------------------------------
-// Lookup fetcher (client → Next API → lookup backend)
-// ------------------------------
-async function fetchLookup(ticker: string, period: string, interval: string) {
-  const res = await fetch("/api/lookup", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ticker, period, interval }),
-  });
-
-  const text = await res.text();
-
-  if (!res.ok) {
-    try {
-      const errJson = JSON.parse(text);
-      throw new Error(
-        errJson.error ||
-          `Lookup failed (${errJson.source ?? "unknown"}): ${JSON.stringify(
-            errJson
-          )}`
-      );
-    } catch {
-      throw new Error(`Lookup failed: ${res.status} – ${text.slice(0, 200)}`);
-    }
-  }
-
-  return JSON.parse(text);
-}
-
-// ------------------------------
-// Main Page Component
-// ------------------------------
 export default function HomePage() {
-  const [ticker, setTicker] = useState("");
-  const [data, setData] = useState<SummaryResponse | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"overview" | "chart" | "profile">(
-    "overview"
-  );
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  async function handleSearch() {
-    const cleaned = ticker.trim();
-    if (!cleaned) return;
+  // LLM state
+  const [prompt, setPrompt] = useState("");
+  const [answer, setAnswer] = useState<string>("");
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleAsk() {
+    const text = prompt.trim();
+    if (!text) return;
 
     setLoading(true);
     setError(null);
-    setData(null);
+    setAnswer("");
 
     try {
-      const json = await fetchLookup(cleaned, "1d", "5m");
-
-      setData({
-        ticker: json.symbol,
-        name: json.shortName ?? json.longName ?? json.symbol,
-        price: json.lastPrice,
-        changePercent: json.period_return_pct ?? 0,
+      const res = await fetch("/api/llm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: text }),
       });
-      setActiveTab("overview");
+
+      if (!res.ok) {
+        throw new Error(`LLM request failed: ${res.status}`);
+      }
+
+      const json = (await res.json()) as LlmResponse;
+      setAnswer(json.answer);
     } catch (e: any) {
       setError(e.message ?? "Something went wrong");
     } finally {
@@ -101,13 +75,11 @@ export default function HomePage() {
     }
   }
 
-  // Reset dashboard: clear ticker, errors, results, and tab
   function resetDashboard() {
-    setTicker("");
-    setData(null);
+    setPrompt("");
+    setAnswer("");
     setError(null);
     setLoading(false);
-    setActiveTab("overview");
   }
 
   function closeMenu() {
@@ -154,6 +126,12 @@ export default function HomePage() {
               </button>
 
               <SidebarLink
+                href="/lookup"
+                icon="🔎"
+                label="Stock Lookup"
+                onClick={closeMenu}
+              />
+              <SidebarLink
                 href="/watchlist"
                 icon="⭐"
                 label="Watchlist"
@@ -175,12 +153,6 @@ export default function HomePage() {
                 href="/sector-rotation"
                 icon="📊"
                 label="Sector Rotation Intelligence"
-                onClick={closeMenu}
-              />
-              <SidebarLink
-                href="/assistant"
-                icon="🤖"
-                label="Stock Analysis Pro"
                 onClick={closeMenu}
               />
             </nav>
@@ -217,71 +189,72 @@ export default function HomePage() {
               )}
             </button>
             <button
-              onClick={() => {
-                resetDashboard();
-              }}
+              onClick={resetDashboard}
               className="text-lg font-semibold tracking-tight hover:text-sky-300 transition-colors"
             >
               MarketMind
             </button>
           </div>
-          {/* right side reserved for future stuff */}
         </div>
 
-        {/* Hero header + lookup search */}
+        {/* Hero header + LLM search */}
         <section className="text-center space-y-5 md:space-y-6">
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
             Search for a stock to start your analysis
           </h1>
           <p className="max-w-3xl mx-auto text-sm md:text-base text-slate-400">
-            Get prices, news, technical indicators, sector trends, and AI-powered
-            insights, all built on our microservice architecture.
+            Type a question and get an answer that can reference
+            lookup, technical indicators, news, and sector rotation (once all
+            services are wired up).
           </p>
 
-          {/* Lookup search bar */}
+          {/* LLM search bar */}
           <div className="mt-4 flex justify-center">
             <div className="w-full max-w-3xl flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-full px-4 py-2 shadow-sm">
-              <span className="text-slate-400 text-lg">🔍</span>
+              <span className="text-slate-400 text-lg">🤖</span>
               <input
                 className="flex-1 bg-transparent outline-none text-sm md:text-base text-slate-100 placeholder:text-slate-500"
-                placeholder="Company or stock symbol…"
-                value={ticker}
-                onChange={(e) => setTicker(e.target.value.toUpperCase())}
+                placeholder='Example: "Summarize NVDA performance over the last year."'
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter") {
                     e.preventDefault();
-                    handleSearch();
+                    handleAsk();
                   }
                 }}
               />
               <button
-                onClick={handleSearch}
-                disabled={!ticker.trim() || loading}
+                onClick={handleAsk}
+                disabled={!prompt.trim() || loading}
                 className="text-xs md:text-sm font-medium text-sky-300 hover:text-sky-200 disabled:opacity-40"
               >
-                {loading ? "Loading…" : "Search"}
+                {loading ? "Thinking…" : "Ask"}
               </button>
             </div>
           </div>
         </section>
 
-        {/* Microservice tiles – match your real microservices */}
+        {/* Microservice tiles */}
         <section className="space-y-3">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+            <ServiceTile href="/lookup" label="Stock Lookup" icon="🔎" />
             <ServiceTile href="/watchlist" label="Watchlist" icon="📋" />
             <ServiceTile href="/sma-ema" label="SMA / EMA Analyzer" icon="📈" />
-            <ServiceTile href="/news-sentiment" label="News & Sentiment" icon="📰" />
+            <ServiceTile
+              href="/news-sentiment"
+              label="News & Sentiment"
+              icon="📰"
+            />
             <ServiceTile
               href="/sector-rotation"
               label="Sector Rotation Intelligence"
               icon="📊"
             />
-            {/* LLM page */}
-            <ServiceTile href="/assistant" label="Stock Analysis Pro" icon="🤖" />
           </div>
         </section>
 
-        {/* Lookup results section */}
+        {/* LLM answer section */}
         <section className="space-y-4">
           {error && (
             <div className="mb-2 rounded-md border border-red-500 bg-red-950/40 px-4 py-2 text-sm text-red-200">
@@ -289,102 +262,15 @@ export default function HomePage() {
             </div>
           )}
 
-          {data && (
-            <div className="space-y-4">
-              {/* Stock header */}
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 md:p-6 space-y-3 md:space-y-4">
-                <div className="space-y-1">
-                  <h2 className="text-2xl md:text-3xl font-bold">
-                    {data.name} ({data.ticker})
-                  </h2>
-                  <p className="text-xs md:text-sm text-slate-400">
-                    Real-time price • Powered by Lookup Service
-                  </p>
-                </div>
-
-                <div className="flex flex-col md:flex-row md:items-end md:justify-start gap-4">
-                  <div>
-                    <div className="text-3xl md:text-4xl font-bold">
-                      ${data.price}
-                    </div>
-                    <div
-                      className={
-                        "mt-1 text-sm md:text-base font-medium " +
-                        (data.changePercent >= 0
-                          ? "text-emerald-400"
-                          : "text-rose-400")
-                      }
-                    >
-                      {data.changePercent >= 0 ? "+" : ""}
-                      {data.changePercent.toFixed(2)}%
-                    </div>
-                    <p className="text-xs text-slate-500 mt-1">
-                      At close: data not yet wired
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Simple tab bar: Overview / Chart / Profile */}
-              <div className="rounded-2xl border border-slate-800 bg-slate-900/80">
-                <div className="flex border-b border-slate-800 text-sm">
-                  <TabButton
-                    label="Overview"
-                    active={activeTab === "overview"}
-                    onClick={() => setActiveTab("overview")}
-                  />
-                  <TabButton
-                    label="Chart"
-                    active={activeTab === "chart"}
-                    onClick={() => setActiveTab("chart")}
-                  />
-                  <TabButton
-                    label="Profile"
-                    active={activeTab === "profile"}
-                    onClick={() => setActiveTab("profile")}
-                  />
-                </div>
-
-                <div className="p-4 md:p-5 text-sm text-slate-200">
-                  {activeTab === "overview" && (
-                    <div className="space-y-2">
-                      <p>
-                        This is the high-level snapshot for{" "}
-                        <span className="font-semibold">{data.ticker}</span>.
-                        Once the lookup service returns more fundamentals
-                        (market cap, P/E, 52-week range, volume, etc.), you can
-                        render them here as key stats.
-                      </p>
-                    </div>
-                  )}
-
-                  {activeTab === "chart" && (
-                    <div className="space-y-2">
-                      <p>
-                        Chart view placeholder. Later, you can use the OHLCV
-                        data from lookup (or the SMA/EMA microservice) to draw
-                        candlesticks or line charts here.
-                      </p>
-                    </div>
-                  )}
-
-                  {activeTab === "profile" && (
-                    <div className="space-y-2">
-                      <p>
-                        Company profile placeholder. Once lookup exposes fields
-                        like sector, industry, and website, you can show them
-                        here along with a short description.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
+          {answer && (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 text-sm whitespace-pre-wrap">
+              {answer}
             </div>
           )}
         </section>
 
-        {/* Top gainers / losers – hide when we have lookup data */}
-        {!data && (
+        {/* Top gainers / losers – hide while an answer is showing */}
+        {!answer && (
           <section className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
             <TopTable title="Top Gainers" items={topGainers} positive />
             <TopTable title="Top Losers" items={topLosers} positive={false} />
@@ -458,9 +344,7 @@ function TopTable(props: { title: string; items: TopMover[]; positive: boolean }
               <td
                 className={
                   "px-4 py-2 text-right font-semibold " +
-                  (m.changePct >= 0
-                    ? "text-emerald-400"
-                    : "text-rose-400")
+                  (m.changePct >= 0 ? "text-emerald-400" : "text-rose-400")
                 }
               >
                 {m.changePct >= 0 ? "+" : ""}
@@ -471,26 +355,5 @@ function TopTable(props: { title: string; items: TopMover[]; positive: boolean }
         </tbody>
       </table>
     </div>
-  );
-}
-
-function TabButton(props: {
-  label: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  const { label, active, onClick } = props;
-  return (
-    <button
-      onClick={onClick}
-      className={
-        "flex-1 px-4 py-2 text-xs md:text-sm font-medium border-b-2 transition-colors " +
-        (active
-          ? "border-sky-400 text-sky-300 bg-slate-900/80"
-          : "border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-900/40")
-      }
-    >
-      {label}
-    </button>
   );
 }
