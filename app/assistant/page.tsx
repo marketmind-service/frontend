@@ -1,122 +1,138 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+
+type LlmSource = {
+  title: string;
+  url?: string;
+  type?: string;
+};
 
 type LlmResponse = {
   answer: string;
-  sources?: Array<{ title: string; url?: string; type?: string }>;
-  // plus anything else your backend returns
+  sources?: LlmSource[];
 };
 
-export default function AssistantPage() {
+function AssistantInner() {
   const searchParams = useSearchParams();
-  const router = useRouter();
-  const q = searchParams.get("q") ?? "";
+  const initialPrompt = searchParams.get("q") ?? "";
 
-  const [data, setData] = useState<LlmResponse | null>(null);
-  const [loading, setLoading] = useState(!!q);
+  const [prompt, setPrompt] = useState(initialPrompt);
+  const [answer, setAnswer] = useState<string>("");
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // Optionally auto-run when opened with ?q=...
   useEffect(() => {
-    if (!q) return;
-
-    async function run() {
-      setLoading(true);
-      setError(null);
-      setData(null);
-      try {
-        const res = await fetch("/api/llm", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: q }),
-        });
-        if (!res.ok) {
-          const text = await res.text();
-          throw new Error(`LLM failed: ${res.status} – ${text.slice(0, 200)}`);
-        }
-        const json = (await res.json()) as LlmResponse;
-        setData(json);
-      } catch (e: any) {
-        setError(e.message ?? "Something went wrong");
-      } finally {
-        setLoading(false);
-      }
+    if (initialPrompt) {
+      void handleAsk(initialPrompt);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialPrompt]);
 
-    run();
-  }, [q]);
+  async function handleAsk(customPrompt?: string) {
+    const text = (customPrompt ?? prompt).trim();
+    if (!text) return;
+
+    setLoading(true);
+    setError(null);
+    setAnswer("");
+
+    try {
+      const res = await fetch("/api/llm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: text }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`LLM request failed: ${res.status}`);
+      }
+
+      const json = (await res.json()) as LlmResponse;
+      setAnswer(json.answer);
+    } catch (e: any) {
+      setError(e.message ?? "Something went wrong");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center p-8 gap-6">
-      <header className="w-full max-w-5xl flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">MarketMind AI Assistant</h1>
-          <p className="text-sm text-slate-400">
-            Query: <span className="italic">{q || "No question provided"}</span>
+    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center">
+      <div className="w-full max-w-4xl px-4 py-6 md:py-8 space-y-6">
+        <header className="flex items-center justify-between">
+          <h1 className="text-xl font-semibold tracking-tight">
+            Stock Analysis Pro
+          </h1>
+          <p className="text-xs text-slate-500">
+            Experimental LLM assistant (mocked for now)
           </p>
-        </div>
-        <button
-          onClick={() => router.push("/")}
-          className="text-sm text-sky-400 hover:underline"
-        >
-          ← Back to dashboard
-        </button>
-      </header>
+        </header>
 
-      {/* future: editable prompt bar on this page too */}
-      {loading && (
-        <div className="w-full max-w-5xl text-sm text-slate-400">
-          Thinking with the LLM…
-        </div>
-      )}
-
-      {error && (
-        <div className="w-full max-w-5xl rounded-md border border-red-500 bg-red-950/40 px-4 py-2 text-sm text-red-200">
-          {error}
-        </div>
-      )}
-
-      {data && (
-        <section className="w-full max-w-5xl space-y-4">
-          <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-            <h2 className="text-lg font-semibold mb-2">Answer</h2>
-            <p className="text-sm leading-relaxed whitespace-pre-wrap">
-              {data.answer}
-            </p>
+        {/* Question box */}
+        <section className="space-y-3">
+          <label className="block text-sm font-medium text-slate-300">
+            Ask MarketMind AI
+          </label>
+          <div className="flex gap-2">
+            <textarea
+              className="flex-1 min-h-[80px] rounded-lg bg-slate-900 border border-slate-700 px-3 py-2 text-sm outline-none focus:border-sky-500 resize-none"
+              placeholder='Example: "Compare NVDA and AMD risk over the last year."'
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+            />
           </div>
+          <div className="flex justify-end">
+            <button
+              onClick={() => handleAsk()}
+              disabled={!prompt.trim() || loading}
+              className="rounded-md px-4 py-2 text-sm font-medium bg-sky-600 hover:bg-sky-500 disabled:opacity-50"
+            >
+              {loading ? "Thinking…" : "Ask"}
+            </button>
+          </div>
+        </section>
 
-          {data.sources && data.sources.length > 0 && (
-            <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-4">
-              <h2 className="text-lg font-semibold mb-2">Sources</h2>
-              <ul className="list-disc list-inside text-sm text-slate-300">
-                {data.sources.map((s, i) => (
-                  <li key={i}>
-                    {s.url ? (
-                      <a
-                        href={s.url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-sky-400 hover:underline"
-                      >
-                        {s.title}
-                      </a>
-                    ) : (
-                      s.title
-                    )}
-                    {s.type && (
-                      <span className="text-slate-500 text-xs">
-                        {" "}
-                        ({s.type})
-                      </span>
-                    )}
-                  </li>
-                ))}
-              </ul>
+        {/* Answer / error */}
+        <section className="space-y-3">
+          {error && (
+            <div className="rounded-md border border-red-500 bg-red-950/40 px-4 py-2 text-sm text-red-200">
+              {error}
             </div>
           )}
+
+          {answer && (
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 text-sm whitespace-pre-wrap">
+              {answer}
+            </div>
+          )}
+
+          {!answer && !error && !loading && (
+            <p className="text-xs text-slate-500">
+              Your answer will appear here. Right now this uses a mocked
+              response from <code>/api/llm</code>; later you can wire it to the
+              real LLM microservice.
+            </p>
+          )}
         </section>
-      )}
+      </div>
     </main>
+  );
+}
+
+export default function AssistantPage() {
+  // Suspense wrapper is required when using useSearchParams in a client component
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+          <p className="text-sm text-slate-400">Loading assistant…</p>
+        </main>
+      }
+    >
+      <AssistantInner />
+    </Suspense>
   );
 }
