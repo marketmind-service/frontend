@@ -1,7 +1,6 @@
 // app/api/lookup/route.ts
 
 type LookupRequestBody = {
-  ticker?: string;
   company?: string;
   period?: string;
   interval?: string;
@@ -10,6 +9,7 @@ type LookupRequestBody = {
 export async function POST(req: Request) {
   const base = process.env.LOOKUP_BASE_URL;
 
+  // Must exist in production — otherwise 500
   if (!base) {
     return new Response(
       JSON.stringify({
@@ -22,29 +22,29 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => null)) as LookupRequestBody | null;
 
-  // accept either "ticker" or "company" from the client
-  const id = (body?.company ?? body?.ticker ?? "").toString().trim();
+  // extract fields
+  const company = body?.company?.toString().trim() || "";
   const period = body?.period?.toString().trim() || undefined;
   const interval = body?.interval?.toString().trim() || undefined;
 
-  if (!id) {
+  // validate required field
+  if (!company) {
     return new Response(
-      JSON.stringify({ error: "ticker/company is required" }),
+      JSON.stringify({ error: "company is required" }),
       { status: 400 }
     );
   }
 
   try {
-    // send both company and ticker so the function can use whatever it expects
+    // build POST body for function app
     const backendBody = {
-      company: id,
-      ticker: id,
+      company,
       period,
       interval,
     };
 
-    // 🔴 IMPORTANT: this hits the FUNCTIONS APP, not the container directly
-    const resp = await fetch(`${base}/api/lookupbridge`, {
+    // IMPORTANT: call the Azure Function route
+    const resp = await fetch(`${base}/lookupbridge`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(backendBody),
@@ -52,6 +52,7 @@ export async function POST(req: Request) {
 
     const text = await resp.text();
 
+    // backend error?
     if (!resp.ok) {
       return new Response(
         JSON.stringify({
@@ -64,20 +65,20 @@ export async function POST(req: Request) {
       );
     }
 
-    // just stream through whatever JSON the function returns
+    // pass through backend response as-is
     return new Response(text, {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
+
   } catch (err: any) {
     return new Response(
       JSON.stringify({
-        error: "Failed to call lookup backend (network / DNS / VNet issue)",
+        error: "Failed to call lookup backend (network or DNS)",
         source: "next-api-fetch",
         details: err?.message ?? String(err),
       }),
       { status: 500 }
-
     );
   }
 }
