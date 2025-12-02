@@ -9,7 +9,7 @@ type LookupRequestBody = {
 export async function POST(req: Request) {
   const base = process.env.LOOKUP_BASE_URL;
 
-  // Must be set in SWA → Configuration → Environment variables
+  // Must exist in production — otherwise 500
   if (!base) {
     return new Response(
       JSON.stringify({
@@ -22,10 +22,12 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => null)) as LookupRequestBody | null;
 
+  // extract fields
   const company = body?.company?.toString().trim() || "";
   const period = body?.period?.toString().trim() || undefined;
   const interval = body?.interval?.toString().trim() || undefined;
 
+  // validate required field
   if (!company) {
     return new Response(
       JSON.stringify({ error: "company is required" }),
@@ -34,13 +36,14 @@ export async function POST(req: Request) {
   }
 
   try {
+    // build POST body for function app
     const backendBody = {
       company,
       period,
       interval,
     };
 
-    // IMPORTANT: Function Apps expose routes under /api/<route-name>
+    // IMPORTANT: call the Azure Function route
     const resp = await fetch(`${base}/api/lookupbridge`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -49,6 +52,7 @@ export async function POST(req: Request) {
 
     const text = await resp.text();
 
+    // backend error?
     if (!resp.ok) {
       return new Response(
         JSON.stringify({
@@ -61,14 +65,16 @@ export async function POST(req: Request) {
       );
     }
 
+    // pass through backend response as-is
     return new Response(text, {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
+
   } catch (err: any) {
     return new Response(
       JSON.stringify({
-        error: "Failed to call lookup backend (network / DNS / VNet issue)",
+        error: "Failed to call lookup backend (network or DNS)",
         source: "next-api-fetch",
         details: err?.message ?? String(err),
       }),
