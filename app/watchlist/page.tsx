@@ -71,7 +71,6 @@ export default function WatchlistPage() {
     setItems((prev) => prev.filter((item) => item.id !== id));
   }
 
-  // --- Loading state ---
   if (loadingUser) {
     return (
       <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
