@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import AuthSidebarSection from "@/app/auth/AuthSidebarSection";
 
 type TopMover = {
   symbol: string;
@@ -158,22 +159,7 @@ export default function HomePage() {
             </nav>
 
             {/* Bottom: sign up / log in */}
-            <div className="px-4 py-4 border-t border-slate-800 space-y-3">
-              <Link
-                href="/signup"
-                className="block w-full text-center rounded-lg bg-sky-600 hover:bg-sky-500 text-sm font-semibold py-2"
-                onClick={closeMenu}
-              >
-                Sign Up
-              </Link>
-              <Link
-                href="/login"
-                className="block w-full text-center rounded-lg border border-slate-600 hover:border-sky-400 text-sm font-semibold py-2"
-                onClick={closeMenu}
-              >
-                Log In
-              </Link>
-            </div>
+            <AuthSidebarSection onAction={closeMenu} />
           </aside>
         </>
       )}
