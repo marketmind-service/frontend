@@ -113,7 +113,7 @@ export default function NewsSentimentPage() {
             <div className="flex flex-col md:flex-row gap-3">
               <input
                 className="flex-1 rounded-lg border border-slate-700 bg-slate-950 px-3 py-2 text-sm md:text-base text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-1 focus:ring-sky-500"
-                placeholder='e.g. "NVDA" or "news for Tesla"'
+                placeholder='e.g. "NVDA" or "AAPL"'
                 value={prompt}
                 onChange={(e) => setPrompt(e.target.value)}
                 required
