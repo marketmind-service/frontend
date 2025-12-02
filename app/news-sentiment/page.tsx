@@ -29,7 +29,7 @@ type AgentState = {
   news_result?: NewsResult | null;
 };
 
-export default function NewsPage() {
+export default function NewsSentimentPage() {
   const [prompt, setPrompt] = useState("");
   const [data, setData] = useState<AgentState | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,7 +65,6 @@ export default function NewsPage() {
   const news = data?.news_result;
   const rows = news?.rows || [];
 
-  // client-side summary
   const summary = rows.length
     ? (() => {
         const comps = rows.map((r) => r.compound);
@@ -87,7 +86,6 @@ export default function NewsPage() {
     <main className="max-w-5xl mx-auto p-6">
       <h1 className="text-2xl font-semibold mb-6">News & Sentiment</h1>
 
-      {/* FORM */}
       <form onSubmit={fetchNews} className="flex gap-3 mb-6">
         <input
           className="border rounded px-3 py-2 w-full"
@@ -105,38 +103,39 @@ export default function NewsPage() {
         </button>
       </form>
 
-      {/* ERROR */}
       {error && (
         <p className="text-sm text-red-600 mb-4">{error}</p>
       )}
 
-      {/* NO RESULTS YET */}
       {!news && !error && !loading && (
-        <p className="text-sm text-gray-500">Enter a company or ticker to begin.</p>
+        <p className="text-sm text-gray-500">
+          Enter a company or ticker to begin.
+        </p>
       )}
 
-      {/* SUMMARY HEADER */}
       {news && !error && (
         <div className="border rounded p-4 mb-6">
           <h2 className="text-lg font-medium mb-1">
             {news.company || news.symbol || "Results"}
           </h2>
-
           <p className="text-sm text-gray-600">
-            Symbol: <span className="font-semibold">{news.symbol}</span>
-            {" • "}
-            Articles: <span className="font-semibold">{rows.length}</span>
+            Symbol: <span className="font-semibold">{news.symbol}</span>{" "}
+            • Articles: <span className="font-semibold">{rows.length}</span>
           </p>
 
           {summary && (
             <div className="mt-3 text-sm text-gray-700 space-y-1">
               <p>
                 Avg sentiment:{" "}
-                <span className="font-mono">{summary.avg.toFixed(3)}</span>
+                <span className="font-mono">
+                  {summary.avg.toFixed(3)}
+                </span>
               </p>
               <p>
                 Median sentiment:{" "}
-                <span className="font-mono">{summary.median.toFixed(3)}</span>
+                <span className="font-mono">
+                  {summary.median.toFixed(3)}
+                </span>
               </p>
               <p>
                 Breakdown: +{summary.pos} / 0 {summary.neu} / -{summary.neg}
@@ -146,11 +145,9 @@ export default function NewsPage() {
         </div>
       )}
 
-      {/* RESULTS TABLE */}
       {rows.length > 0 && (
         <div className="border rounded p-4">
           <h3 className="font-semibold mb-2 text-sm">Recent headlines</h3>
-
           <div className="overflow-x-auto">
             <table className="w-full text-sm border-collapse">
               <thead>
@@ -161,7 +158,6 @@ export default function NewsPage() {
                   <th className="text-left py-1 pr-2">Title</th>
                 </tr>
               </thead>
-
               <tbody>
                 {rows.map((r, i) => (
                   <tr key={i} className="border-b align-top">
