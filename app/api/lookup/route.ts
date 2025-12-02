@@ -77,6 +77,7 @@ export async function POST(req: Request) {
         details: err?.message ?? String(err),
       }),
       { status: 500 }
+
     );
   }
 }
