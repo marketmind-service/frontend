@@ -12,7 +12,7 @@ type WatchItem = {
   notes?: string;
 };
 
-// Minimal shape of what /api/lookup returns that we care about
+// Minimal shape of what /api/bridge_url returns that we care about
 type LookupResponse = {
   symbol?: string;
   shortName?: string;
@@ -141,7 +141,7 @@ export default function WatchlistPage() {
 
   if (loadingUser) {
     return (
-      <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+      <main className="min-h-screen bg-slate-950/90 backdrop-blur text-slate-100 flex items-center justify-center">
         <p className="text-sm text-slate-400">Checking your session…</p>
       </main>
     );
@@ -150,7 +150,7 @@ export default function WatchlistPage() {
   // --- Not logged in state ---
   if (!user) {
     return (
-      <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center px-4">
+      <main className="min-h-screen bg-slate-950/90 backdrop-blur text-slate-100 flex items-center justify-center px-4">
         <div className="max-w-md w-full bg-slate-900/80 border border-slate-800 rounded-2xl p-6 space-y-4 text-center">
           <h1 className="text-xl font-semibold">Watchlist</h1>
           <p className="text-sm text-slate-400">
@@ -177,7 +177,7 @@ export default function WatchlistPage() {
 
   // --- Logged in view ---
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center">
+    <main className="min-h-screen bg-slate-950/90 backdrop-blur text-slate-100 flex flex-col items-center">
       <div className="w-full max-w-5xl px-4 py-6 md:py-8 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">

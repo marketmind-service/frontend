@@ -159,7 +159,7 @@ export default function LookupPage() {
   const chartData = buildChartData(data?.tail_ohlcv ?? null);
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center">
+    <main className="min-h-screen bg-slate-950/90 backdrop-blur text-slate-100 flex flex-col items-center">
       <div className="w-full max-w-4xl px-4 py-6 md:py-8 space-y-6">
         {/* Top bar */}
         <header className="mb-4 space-y-2">

@@ -91,7 +91,7 @@ export default function NewsSentimentPage() {
     : null;
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex justify-center items-start">
+    <main className="min-h-screen bg-slate-950/90 backdrop-blur text-slate-100 flex flex-col items-center">
       <div className="w-full max-w-4xl px-4 py-8">
         <button
           onClick={() => (window.location.href = "/")}

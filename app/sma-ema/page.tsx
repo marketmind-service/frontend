@@ -242,7 +242,7 @@ export default function SmaEmaPage() {
   const history = series;
 
   return (
-    <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center">
+    <main className="min-h-screen bg-slate-950/90 backdrop-blur text-slate-100 flex flex-col items-center">
       <div className="w-full max-w-5xl px-4 py-6 md:py-8 space-y-6">
         {/* Top bar */}
         <header className="mb-4 space-y-2">
