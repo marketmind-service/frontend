@@ -172,7 +172,7 @@ export default function SmaEmaPage() {
     setSummary({});
 
     try {
-      const res = await fetch("/api/lookup", {
+      const res = await fetch("/api/bridge_url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

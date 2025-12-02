@@ -68,7 +68,7 @@ export default function WatchlistPage() {
 
     try {
       // Call the same lookup microservice the lookup page uses
-      const res = await fetch("/api/lookup", {
+      const res = await fetch("/api/bridge_url", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

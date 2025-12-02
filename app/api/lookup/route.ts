@@ -41,8 +41,8 @@ export async function POST(req: Request) {
   // 👉 Local dev: FastAPI lives at /api/lookup
   // 👉 Azure: Function lives at /api/lookupbridge
   const targetUrl = isLocalFastApi
-    ? `${trimmedBase}/api/lookup`
-    : `${trimmedBase}/api/lookupbridge`;
+    ? `${trimmedBase}/api/bridge_url`
+    : `${trimmedBase}/api/routerbridge`;
 
   try {
     const backendBody = {
