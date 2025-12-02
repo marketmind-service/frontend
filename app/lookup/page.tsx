@@ -103,7 +103,7 @@ export default function LookupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ticker: cleaned, // your Next.js route can map this to `company`
+          company: cleaned, // your Next.js route can map this to `company`
           period,
           interval,
         }),
