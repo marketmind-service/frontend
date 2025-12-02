@@ -1,7 +1,8 @@
 // app/api/lookup/route.ts
 
 type LookupRequestBody = {
-  ticker?: string;
+  ticker?: string;   // what your React page sends
+  company?: string;  // future-proof: if you ever send company instead
   period?: string;
   interval?: string;
 };
@@ -11,25 +12,28 @@ export async function POST(req: Request) {
   const isDev = process.env.NODE_ENV !== "production";
 
   const body = (await req.json().catch(() => null)) as LookupRequestBody | null;
-  const ticker = body?.ticker?.toString().trim();
-  const period = body?.period;
-  const interval = body?.interval;
 
-  if (!ticker) {
+  const rawCompany =
+    (body?.company ?? body?.ticker ?? "").toString().trim();
+
+  const period = body?.period?.toString().trim() || undefined;
+  const interval = body?.interval?.toString().trim() || undefined;
+
+  if (!rawCompany) {
     return new Response(
-      JSON.stringify({ error: "ticker is required" }),
+      JSON.stringify({ error: "ticker/company is required" }),
       { status: 400 }
     );
   }
 
-  // In dev, if LOOKUP_BASE_URL is missing, return a mock so you can still code
+  // Dev helper: if there is no LOOKUP_BASE_URL, return a mock payload
   if (isDev && !base) {
     const mock = {
-      symbol: ticker.toUpperCase(),
+      symbol: rawCompany.toUpperCase(),
       lastPrice: 123.45,
       period_return_pct: 1.23,
       shortName: "Mock Corp",
-      company: ticker,
+      company: rawCompany,
       period,
       interval,
       tail_ohlcv: null,
@@ -49,12 +53,16 @@ export async function POST(req: Request) {
   }
 
   try {
-    // Backend expects { company, period, interval }
-    const backendBody = {
-      company: ticker,
-      period,
-      interval,
-    };
+    // This is exactly what FastAPI expects:
+    //   DirectLookupRequest(company, period, interval)
+    const backendBody: {
+      company: string;
+      period?: string;
+      interval?: string;
+    } = { company: rawCompany };
+
+    if (period) backendBody.period = period;
+    if (interval) backendBody.interval = interval;
 
     const resp = await fetch(`${base}/api/lookup`, {
       method: "POST",
@@ -83,7 +91,8 @@ export async function POST(req: Request) {
   } catch (err: any) {
     return new Response(
       JSON.stringify({
-        error: "Failed to call lookup backend (network / DNS / VNet issue)",
+        error:
+          "Failed to call lookup backend (network / DNS / VNet issue)",
         source: "next-api-fetch",
         details: err?.message ?? String(err),
       }),
