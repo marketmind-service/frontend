@@ -32,6 +32,18 @@ export async function POST(req: Request) {
     );
   }
 
+  // Figure out whether we're talking to local FastAPI or the Azure Function
+  const trimmedBase = base.replace(/\/+$/, ""); // remove trailing slash
+  const isLocalFastApi =
+    trimmedBase.startsWith("http://127.0.0.1") ||
+    trimmedBase.startsWith("http://localhost");
+
+  // 👉 Local dev: FastAPI lives at /api/lookup
+  // 👉 Azure: Function lives at /api/lookupbridge
+  const targetUrl = isLocalFastApi
+    ? `${trimmedBase}/api/lookup`
+    : `${trimmedBase}/api/lookupbridge`;
+
   try {
     const backendBody = {
       company,
@@ -39,7 +51,7 @@ export async function POST(req: Request) {
       interval,
     };
 
-    const resp = await fetch(`${base}/api/lookupbridge`, {
+    const resp = await fetch(targetUrl, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(backendBody),
@@ -63,7 +75,6 @@ export async function POST(req: Request) {
       status: 200,
       headers: { "Content-Type": "application/json" },
     });
-
   } catch (err: any) {
     return new Response(
       JSON.stringify({
