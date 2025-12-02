@@ -66,7 +66,6 @@ export default function WatchlistPage() {
     setFormError(null);
     setAdding(true);
 
-    try:
     try {
       // Call the same lookup microservice the lookup page uses
       const res = await fetch("/api/lookup", {
@@ -74,7 +73,7 @@ export default function WatchlistPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           company: trimmedSymbol,
-          period: "1mo",   // any valid combo; we just need metadata
+          period: "1mo", // any valid combo; we just need metadata
           interval: "1d",
         }),
       });
@@ -105,10 +104,7 @@ export default function WatchlistPage() {
 
       const resolvedSymbol = (json.symbol || trimmedSymbol).toUpperCase();
       const resolvedName =
-        json.shortName ||
-        json.company ||
-        trimmedName ||
-        resolvedSymbol;
+        json.shortName || json.company || trimmedName || resolvedSymbol;
 
       // Add validated item
       setItems((prev) => [
@@ -137,6 +133,7 @@ export default function WatchlistPage() {
       setAdding(false);
     }
   }
+
 
   function handleRemove(id: number) {
     setItems((prev) => prev.filter((item) => item.id !== id));
