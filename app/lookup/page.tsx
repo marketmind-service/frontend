@@ -48,6 +48,15 @@ type PricePoint = {
 const PERIOD_OPTIONS = ["1d", "5d", "1mo", "6mo", "1y", "5y", "max"];
 const INTERVAL_OPTIONS = ["1m", "5m", "15m", "1d"];
 
+// Simple hard-coded trending list for the dropdown
+const TRENDING_STOCKS = [
+  { symbol: "NVDA", name: "NVIDIA Corporation", type: "Stock" },
+  { symbol: "GOOGL", name: "Alphabet Inc.", type: "Stock" },
+  { symbol: "META", name: "Meta Platforms, Inc.", type: "Stock" },
+  { symbol: "AMD", name: "Advanced Micro Devices, Inc.", type: "Stock" },
+  { symbol: "TSLA", name: "Tesla, Inc.", type: "Stock" },
+];
+
 // Convert tail_ohlcv dict into a sorted array of { time, close }
 function buildChartData(
   tail: Record<string, TailOhlcvRow> | null | undefined
@@ -165,17 +174,10 @@ export default function LookupPage() {
             <label className="block text-sm font-medium text-slate-200">
               Ticker / Company
             </label>
-            <input
-              className="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm outline-none focus:border-sky-500"
-              placeholder="e.g. AAPL, MSFT, NVDA"
+            <TickerSearch
               value={ticker}
-              onChange={(e) => setTicker(e.target.value.toUpperCase())}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleLookup();
-                }
-              }}
+              onChange={(v) => setTicker(v.toUpperCase())}
+              onSubmit={handleLookup}
             />
           </div>
 
@@ -353,6 +355,115 @@ function PriceChart({ history }: { history: PricePoint[] }) {
           />
         </LineChart>
       </ResponsiveContainer>
+    </div>
+  );
+}
+
+/* ------------------------------
+   Search bar with trending + suggestions
+   ------------------------------ */
+
+type TickerSearchProps = {
+  value: string;
+  onChange: (val: string) => void;
+  onSubmit: () => void;
+};
+
+function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
+  const [focused, setFocused] = useState(false);
+
+  const query = value.trim();
+  const upperQuery = query.toUpperCase();
+
+  let suggestions = TRENDING_STOCKS;
+
+  if (upperQuery) {
+    const startsWith = TRENDING_STOCKS.filter((s) =>
+      s.symbol.startsWith(upperQuery)
+    );
+    const nameMatch = TRENDING_STOCKS.filter(
+      (s) =>
+        !startsWith.includes(s) &&
+        s.name.toUpperCase().includes(upperQuery)
+    );
+    suggestions = [...startsWith, ...nameMatch];
+  }
+
+  // Always cap at 4 results
+  suggestions = suggestions.slice(0, 4);
+
+  const showDropdown = focused && suggestions.length > 0;
+
+  function handleClear() {
+    onChange("");
+  }
+
+  return (
+    <div className="relative">
+      <div className="flex items-center rounded-full bg-slate-950 border border-slate-700 px-3 py-2 text-sm focus-within:border-sky-500">
+        {/* search icon */}
+        <span className="mr-2 text-slate-500">🔍</span>
+        <input
+          className="flex-1 bg-transparent outline-none text-slate-100 placeholder:text-slate-500"
+          placeholder="Company or stock symbol..."
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => {
+            // small timeout so clicks on suggestions still register
+            setTimeout(() => setFocused(false), 100);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              onSubmit();
+            } else if (e.key === "Escape") {
+              handleClear();
+            }
+          }}
+        />
+        {/* clear button */}
+        {value && (
+          <button
+            type="button"
+            onClick={handleClear}
+            className="ml-2 text-slate-400 hover:text-slate-200 text-xs"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {showDropdown && (
+        <div className="absolute z-20 mt-1 w-full rounded-xl bg-slate-950 border border-slate-800 shadow-lg text-sm overflow-hidden">
+          {!upperQuery && (
+            <div className="px-3 py-2 text-xs font-semibold text-slate-400 border-b border-slate-800">
+              Trending
+            </div>
+          )}
+          <ul>
+            {suggestions.map((s) => (
+              <li
+                key={s.symbol}
+                className="flex items-center justify-between px-3 py-2 hover:bg-slate-900 cursor-pointer"
+                onMouseDown={(e) => {
+                  // onMouseDown so it fires before input blur
+                  e.preventDefault();
+                  onChange(s.symbol);
+                }}
+              >
+                <div className="flex flex-col">
+                  <span className="font-semibold text-slate-100">
+                    {s.symbol}
+                  </span>
+                  <span className="text-xs text-slate-400">{s.name}</span>
+                </div>
+                <span className="text-xs text-slate-500">{s.type}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

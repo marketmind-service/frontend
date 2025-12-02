@@ -141,7 +141,7 @@ const PERIOD_OPTIONS = ["1d", "5d", "1mo", "6mo", "1y", "5y", "max"];
 const INTERVAL_OPTIONS = ["1m", "5m", "15m", "1d"];
 
 export default function SmaEmaPage() {
-  const [ticker, setTicker] = useState("AAPL");
+  const [ticker, setTicker] = useState("");
   const [period, setPeriod] = useState("1d");
   const [interval, setInterval] = useState("5m");
 
