@@ -12,6 +12,14 @@ type WatchItem = {
   notes?: string;
 };
 
+// Minimal shape of what /api/lookup returns that we care about
+type LookupResponse = {
+  symbol?: string;
+  shortName?: string;
+  company?: string;
+  error?: string | null;
+};
+
 export default function WatchlistPage() {
   const [user, setUser] = useState<any>(null);
   const [loadingUser, setLoadingUser] = useState(true);
@@ -21,11 +29,9 @@ export default function WatchlistPage() {
   const [targetPrice, setTargetPrice] = useState<string>("");
   const [notes, setNotes] = useState("");
 
-  const [items, setItems] = useState<WatchItem[]>([
-    // Mock starter data – replace with real data later
-    { id: 1, symbol: "NVDA", name: "NVIDIA Corp", targetPrice: 130 },
-    { id: 2, symbol: "TSLA", name: "Tesla Inc", targetPrice: 230 },
-  ]);
+  const [items, setItems] = useState<WatchItem[]>([]);
+  const [adding, setAdding] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   // --- Auth check ---
   useEffect(() => {
@@ -34,37 +40,102 @@ export default function WatchlistPage() {
       setLoadingUser(false);
     });
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-    });
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setUser(session?.user ?? null);
+      }
+    );
 
     return () => {
       listener.subscription.unsubscribe();
     };
   }, []);
 
-  function handleAdd(e: React.FormEvent) {
+  // --- Add item using lookup backend ---
+  async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     const trimmedSymbol = symbol.trim().toUpperCase();
     const trimmedName = name.trim();
+    const trimmedNotes = notes.trim();
 
-    if (!trimmedSymbol) return;
+    if (!trimmedSymbol) {
+      setFormError("Please enter a symbol.");
+      return;
+    }
 
-    setItems((prev) => [
-      ...prev,
-      {
-        id: Date.now(),
-        symbol: trimmedSymbol,
-        name: trimmedName || trimmedSymbol,
-        targetPrice: targetPrice ? Number(targetPrice) : undefined,
-        notes: notes.trim() || undefined,
-      },
-    ]);
+    setFormError(null);
+    setAdding(true);
 
-    setSymbol("");
-    setName("");
-    setTargetPrice("");
-    setNotes("");
+    try:
+    try {
+      // Call the same lookup microservice the lookup page uses
+      const res = await fetch("/api/lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company: trimmedSymbol,
+          period: "1mo",   // any valid combo; we just need metadata
+          interval: "1d",
+        }),
+      });
+
+      const text = await res.text();
+
+      if (!res.ok) {
+        // Try to parse backend error payload
+        try {
+          const errJson = JSON.parse(text);
+          throw new Error(
+            errJson.error ||
+              errJson.detail ||
+              `Lookup failed (${errJson.source ?? "unknown"})`
+          );
+        } catch {
+          throw new Error(
+            `Lookup failed: ${res.status} – ${text.slice(0, 200)}`
+          );
+        }
+      }
+
+      const json = JSON.parse(text) as LookupResponse;
+
+      if (json.error) {
+        throw new Error(json.error);
+      }
+
+      const resolvedSymbol = (json.symbol || trimmedSymbol).toUpperCase();
+      const resolvedName =
+        json.shortName ||
+        json.company ||
+        trimmedName ||
+        resolvedSymbol;
+
+      // Add validated item
+      setItems((prev) => [
+        ...prev,
+        {
+          id: Date.now(),
+          symbol: resolvedSymbol,
+          name: resolvedName,
+          targetPrice: targetPrice ? Number(targetPrice) : undefined,
+          notes: trimmedNotes || undefined,
+        },
+      ]);
+
+      // Clear form
+      setSymbol("");
+      setName("");
+      setTargetPrice("");
+      setNotes("");
+      setFormError(null);
+    } catch (err: any) {
+      setFormError(
+        err?.message ||
+          "Unable to validate this symbol using lookup. Please check the ticker and try again."
+      );
+    } finally {
+      setAdding(false);
+    }
   }
 
   function handleRemove(id: number) {
@@ -124,7 +195,7 @@ export default function WatchlistPage() {
               Watchlist
             </h1>
             <p className="text-xs md:text-sm text-slate-400">
-              Signed in as <span className="text-sky-300">{user.email}</span>.  
+              Signed in as <span className="text-sky-300">{user.email}</span>.{" "}
               Track tickers you&apos;re monitoring and set simple targets.
             </p>
           </div>
@@ -133,12 +204,22 @@ export default function WatchlistPage() {
         {/* Add form */}
         <section className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 md:p-5 space-y-4">
           <h2 className="text-sm font-semibold">Add to watchlist</h2>
-          <form onSubmit={handleAdd} className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs md:text-sm">
+
+          {formError && (
+            <div className="rounded-md border border-rose-500 bg-rose-950/40 px-3 py-2 text-xs text-rose-100">
+              {formError}
+            </div>
+          )}
+
+          <form
+            onSubmit={handleAdd}
+            className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs md:text-sm"
+          >
             <div className="space-y-1">
               <label className="block text-slate-400">Symbol</label>
               <input
                 value={symbol}
-                onChange={(e) => setSymbol(e.target.value)}
+                onChange={(e) => setSymbol(e.target.value.toUpperCase())}
                 placeholder="e.g., NVDA"
                 className="w-full rounded-lg bg-slate-950 border border-slate-700 px-3 py-2 outline-none focus:border-sky-400"
               />
@@ -153,7 +234,9 @@ export default function WatchlistPage() {
               />
             </div>
             <div className="space-y-1">
-              <label className="block text-slate-400">Target price (optional)</label>
+              <label className="block text-slate-400">
+                Target price (optional)
+              </label>
               <input
                 type="number"
                 step="0.01"
@@ -174,9 +257,10 @@ export default function WatchlistPage() {
                 />
                 <button
                   type="submit"
-                  className="rounded-lg bg-sky-600 hover:bg-sky-500 px-3 py-2 text-xs font-semibold whitespace-nowrap"
+                  disabled={adding}
+                  className="rounded-lg bg-sky-600 hover:bg-sky-500 disabled:opacity-50 px-3 py-2 text-xs font-semibold whitespace-nowrap"
                 >
-                  Add
+                  {adding ? "Adding…" : "Add"}
                 </button>
               </div>
             </div>
@@ -217,7 +301,9 @@ export default function WatchlistPage() {
                       {item.name}
                     </td>
                     <td className="px-4 py-2 text-right text-slate-100">
-                      {item.targetPrice !== undefined ? `$${item.targetPrice.toFixed(2)}` : "—"}
+                      {item.targetPrice !== undefined
+                        ? `$${item.targetPrice.toFixed(2)}`
+                        : "—"}
                     </td>
                     <td className="px-4 py-2 text-slate-300 max-w-[200px] truncate">
                       {item.notes ?? "—"}
