@@ -44,7 +44,7 @@ export async function POST(req: Request) {
     };
 
     // IMPORTANT: call the Azure Function route
-    const resp = await fetch(`${base}/lookupbridge`, {
+    const resp = await fetch(`${base}/api/lookupbridge`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(backendBody),
