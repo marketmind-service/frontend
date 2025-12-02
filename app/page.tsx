@@ -159,12 +159,20 @@ export default function HomePage() {
 
             {/* Bottom: sign up / log in */}
             <div className="px-4 py-4 border-t border-slate-800 space-y-3">
-              <button className="w-full rounded-lg bg-sky-600 hover:bg-sky-500 text-sm font-semibold py-2">
+              <Link
+                href="/signup"
+                className="block w-full text-center rounded-lg bg-sky-600 hover:bg-sky-500 text-sm font-semibold py-2"
+                onClick={closeMenu}
+              >
                 Sign Up
-              </button>
-              <button className="w-full rounded-lg border border-slate-600 hover:border-sky-400 text-sm font-semibold py-2">
+              </Link>
+              <Link
+                href="/login"
+                className="block w-full text-center rounded-lg border border-slate-600 hover:border-sky-400 text-sm font-semibold py-2"
+                onClick={closeMenu}
+              >
                 Log In
-              </button>
+              </Link>
             </div>
           </aside>
         </>
