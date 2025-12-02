@@ -1,8 +1,8 @@
 // app/api/lookup/route.ts
 
 type LookupRequestBody = {
-  ticker?: string;   // what your React page sends
-  company?: string;  // future-proof: if you ever send company instead
+  ticker?: string;
+  company?: string;
   period?: string;
   interval?: string;
 };
@@ -13,6 +13,7 @@ export async function POST(req: Request) {
 
   const body = (await req.json().catch(() => null)) as LookupRequestBody | null;
 
+  // Accept either "ticker" or "company" from the client
   const rawCompany =
     (body?.company ?? body?.ticker ?? "").toString().trim();
 
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // Dev helper: if there is no LOOKUP_BASE_URL, return a mock payload
+  // 🔹 LOCAL DEV: if no LOOKUP_BASE_URL, just return a mock
   if (isDev && !base) {
     const mock = {
       symbol: rawCompany.toUpperCase(),
@@ -42,6 +43,7 @@ export async function POST(req: Request) {
     return Response.json(mock, { status: 200 });
   }
 
+  // 🔹 PROD (main page): require LOOKUP_BASE_URL and call real backend
   if (!base) {
     return new Response(
       JSON.stringify({
@@ -53,8 +55,6 @@ export async function POST(req: Request) {
   }
 
   try {
-    // This is exactly what FastAPI expects:
-    //   DirectLookupRequest(company, period, interval)
     const backendBody: {
       company: string;
       period?: string;
@@ -91,8 +91,7 @@ export async function POST(req: Request) {
   } catch (err: any) {
     return new Response(
       JSON.stringify({
-        error:
-          "Failed to call lookup backend (network / DNS / VNet issue)",
+        error: "Failed to call lookup backend (network / DNS / VNet issue)",
         source: "next-api-fetch",
         details: err?.message ?? String(err),
       }),
