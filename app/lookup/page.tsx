@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ResponsiveContainer,
@@ -45,11 +45,17 @@ type PricePoint = {
   close: number;
 };
 
+type StockSuggestion = {
+  symbol: string;
+  name: string;
+  type: string;
+};
+
 const PERIOD_OPTIONS = ["1d", "5d", "1mo", "6mo", "1y", "5y", "max"];
 const INTERVAL_OPTIONS = ["1m", "5m", "15m", "1d"];
 
-// Simple hard-coded trending list for the dropdown
-const TRENDING_STOCKS = [
+// Simple hard-coded trending list for the empty state
+const TRENDING_STOCKS: StockSuggestion[] = [
   { symbol: "NVDA", name: "NVIDIA Corporation", type: "Stock" },
   { symbol: "GOOGL", name: "Alphabet Inc.", type: "Stock" },
   { symbol: "META", name: "Meta Platforms, Inc.", type: "Stock" },
@@ -360,7 +366,7 @@ function PriceChart({ history }: { history: PricePoint[] }) {
 }
 
 /* ------------------------------
-   Search bar with trending + suggestions
+   Search bar with trending + API suggestions
    ------------------------------ */
 
 type TickerSearchProps = {
@@ -371,31 +377,73 @@ type TickerSearchProps = {
 
 function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
   const [focused, setFocused] = useState(false);
+  const [remoteSuggestions, setRemoteSuggestions] = useState<StockSuggestion[]>(
+    []
+  );
 
   const query = value.trim();
   const upperQuery = query.toUpperCase();
 
-  let suggestions = TRENDING_STOCKS;
+  // Fetch live suggestions from Yahoo Finance search API
+  useEffect(() => {
+    if (!upperQuery) {
+      setRemoteSuggestions([]);
+      return;
+    }
 
-  if (upperQuery) {
-    const startsWith = TRENDING_STOCKS.filter((s) =>
-      s.symbol.startsWith(upperQuery)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      fetch(
+        `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(
+          upperQuery
+        )}&quotesCount=5&newsCount=0`,
+        { signal: controller.signal }
+      )
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then((json) => {
+          const quotes = (json?.quotes ?? []) as any[];
+          const mapped: StockSuggestion[] = quotes.map((q) => ({
+            symbol: q.symbol,
+            name: q.shortname || q.longname || q.symbol,
+            type: q.quoteType || "Stock",
+          }));
+          setRemoteSuggestions(mapped);
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) {
+            setRemoteSuggestions([]);
+          }
+        });
+    }, 250); // small debounce
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [upperQuery]);
+
+  let suggestions: StockSuggestion[] = [];
+
+  if (!upperQuery) {
+    // Empty query → show static trending
+    suggestions = TRENDING_STOCKS.slice(0, 4);
+  } else if (remoteSuggestions.length > 0) {
+    const startsWith = remoteSuggestions.filter((s) =>
+      s.symbol.toUpperCase().startsWith(upperQuery)
     );
-    const nameMatch = TRENDING_STOCKS.filter(
+    const nameMatch = remoteSuggestions.filter(
       (s) =>
         !startsWith.includes(s) &&
         s.name.toUpperCase().includes(upperQuery)
     );
-    suggestions = [...startsWith, ...nameMatch];
+    suggestions = [...startsWith, ...nameMatch].slice(0, 4);
   }
-
-  // Always cap at 4 results
-  suggestions = suggestions.slice(0, 4);
 
   const showDropdown = focused && suggestions.length > 0;
 
   function handleClear() {
     onChange("");
+    setRemoteSuggestions([]);
   }
 
   return (
@@ -410,7 +458,7 @@ function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
           onChange={(e) => onChange(e.target.value)}
           onFocus={() => setFocused(true)}
           onBlur={() => {
-            // small timeout so clicks on suggestions still register
+            // tiny delay so clicks on suggestion still register
             setTimeout(() => setFocused(false), 100);
           }}
           onKeyDown={(e) => {
@@ -422,11 +470,14 @@ function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
             }
           }}
         />
-        {/* clear button */}
-        {value && (
+        {/* clear button – show as soon as focused, even if empty */}
+        {(focused || value) && (
           <button
             type="button"
-            onClick={handleClear}
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleClear();
+            }}
             className="ml-2 text-slate-400 hover:text-slate-200 text-xs"
           >
             ✕
@@ -447,9 +498,11 @@ function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
                 key={s.symbol}
                 className="flex items-center justify-between px-3 py-2 hover:bg-slate-900 cursor-pointer"
                 onMouseDown={(e) => {
-                  // onMouseDown so it fires before input blur
+                  // onMouseDown so it fires before blur
                   e.preventDefault();
                   onChange(s.symbol);
+                  setFocused(false); // hide dropdown after selection
+                  setRemoteSuggestions([]);
                 }}
               >
                 <div className="flex flex-col">
