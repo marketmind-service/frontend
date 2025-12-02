@@ -1,0 +1,40 @@
+name: Build and deploy Next.js app to Azure Web App - marketmind-web
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22.x'
+
+      - name: Install deps and build
+        run: npm ci
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_AF856AF7BA0A4DC386BECF4DEAD42BB5 }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_D898EE8B760148528904F2D9B1539809 }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_CBC5AD9E6F6B4AC09A72654AE1C20BC0 }}
+
+      - name: Deploy to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: 'marketmind-web'
+          slot-name: 'Production'
+          package: .
