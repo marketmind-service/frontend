@@ -23,9 +23,7 @@ jobs:
           node-version: '22.x'
 
       - name: Install deps and build
-        run: |
-          npm ci || npm install
-          npm run build
+        run: npm ci
 
       - name: Login to Azure
         uses: azure/login@v2
