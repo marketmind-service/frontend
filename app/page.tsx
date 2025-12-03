@@ -147,13 +147,18 @@ export default function HomePage() {
       }
 
       if (route === "sector_analysis") {
-        const sectors = data.sector_result?.sectors || [];
-        const params = new URLSearchParams();
-        if (sectors.length) params.set("sectors", sectors.join(","));
-        router.push(
-          `/sector-rotation${params.toString() ? `?${params.toString()}` : ""}`
-        );
-        return;
+          const sectors = data.sector_result?.sectors || [];
+          const params = new URLSearchParams();
+
+          if (sectors.length) {
+            params.set("sectors", sectors.join(","));
+          }
+
+          params.set("fromAgent", "1");
+
+          const qs = params.toString();
+          router.push(`/sector-rotation${qs ? `?${qs}` : ""}`);
+          return;
       }
 
       if (route === "sma_ema") {
