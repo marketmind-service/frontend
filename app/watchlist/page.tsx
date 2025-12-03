@@ -373,8 +373,13 @@ export default function WatchlistPage() {
               <tbody>
                 {items.map((item) => (
                   <tr key={item.id} className="border-t border-slate-800">
-                    <td className="px-4 py-2 text-sky-300 font-medium">
-                      {item.symbol}
+                    <td className="px-4 py-2">
+                      <Link
+                        href={`/lookup?company=${encodeURIComponent(item.symbol)}`}
+                        className="text-sky-300 font-medium hover:underline"
+                      >
+                        {item.symbol}
+                      </Link>
                     </td>
                     <td className="px-4 py-2 text-slate-100 truncate">
                       {item.name}
