@@ -7,12 +7,12 @@ type LookupRequestBody = {
 };
 
 export async function POST(req: Request) {
-  const base = process.env.LOOKUP_BASE_URL;
+  const base = process.env.BRIDGE_URL;
 
   if (!base) {
     return new Response(
       JSON.stringify({
-        error: "LOOKUP_BASE_URL not set on server",
+        error: "BRIDGE_URL not set on server",
         source: "next-api",
       }),
       { status: 500 }
@@ -41,8 +41,8 @@ export async function POST(req: Request) {
   // 👉 Local dev: FastAPI lives at /api/lookup
   // 👉 Azure: Function lives at /api/lookupbridge
   const targetUrl = isLocalFastApi
-    ? `${trimmedBase}/api/bridge_url`
-    : `${trimmedBase}/api/routerbridge`;
+    ? `${trimmedBase}/api/lookup`
+    : `${trimmedBase}/api/lookupbridge`;
 
   try {
     const backendBody = {

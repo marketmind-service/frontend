@@ -88,7 +88,8 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-950/90 backdrop-blur text-slate-100 flex flex-col items-center">
+    // ⬇️ main background is now transparent so particles can be seen
+    <main className="min-h-screen text-slate-100 flex flex-col items-center">
       {/* Sidebar + overlay */}
       {isMenuOpen && (
         <>
