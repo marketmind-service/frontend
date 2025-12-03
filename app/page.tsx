@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AuthSidebarSection from "@/app/auth/AuthSidebarSection";
 
@@ -11,15 +12,25 @@ type TopMover = {
   changePct: number;
 };
 
-type LlmSource = {
-  title: string;
-  url?: string;
-  type?: string;
-};
-
-type LlmResponse = {
-  answer: string;
-  sources?: LlmSource[];
+type AgentState = {
+  prompt: string;
+  classification?: string[];
+  lookup_result?: {
+    symbol?: string | null;
+    company?: string | null;
+    period?: string | null;
+    interval?: string | null;
+    error?: string | null;
+  } | null;
+  news_result?: {
+    company?: string | null;
+    items?: number | null;
+    error?: string | null;
+  } | null;
+  sector_result?: {
+    sectors?: string[] | null;
+    error?: string | null;
+  } | null;
 };
 
 // Mock data – later replace with sector-rotation / market-movers microservice
@@ -42,35 +53,100 @@ const topLosers: TopMover[] = [
 export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // LLM state
+  // Agent search state
   const [prompt, setPrompt] = useState("");
-  const [answer, setAnswer] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleAsk() {
+  const router = useRouter();
+
+  async function handleAsk(e?: React.FormEvent | React.KeyboardEvent) {
+    if (e) e.preventDefault();
     const text = prompt.trim();
     if (!text) return;
 
     setLoading(true);
     setError(null);
-    setAnswer("");
 
     try {
-      const res = await fetch("/api/llm", {
+      const res = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt: text }),
       });
 
-      if (!res.ok) {
-        throw new Error(`LLM request failed: ${res.status}`);
+      const raw = await res.text();
+      let json: AgentState;
+
+      try {
+        json = JSON.parse(raw) as AgentState;
+      } catch {
+        throw new Error(`Unexpected response from /api/ask: ${raw.slice(0, 160)}`);
       }
 
-      const json = (await res.json()) as LlmResponse;
-      setAnswer(json.answer);
-    } catch (e: any) {
-      setError(e.message ?? "Something went wrong");
+      if (!res.ok) {
+        const detail = (json as any)?.detail || (json as any)?.error;
+        throw new Error(detail || `Agent request failed: ${res.status}`);
+      }
+
+      const label = json.classification?.[0] ?? "None of the above";
+
+      // Route based on classification label
+      if (label === "Stock Lookup") {
+        const lookup = json.lookup_result || {};
+        const symbol =
+          lookup.symbol ||
+          lookup.company ||
+          extractSymbolFromPrompt(text);
+        const period = lookup.period || "1y";
+        const interval = lookup.interval || "1d";
+
+        if (!symbol) {
+          setError(
+            "I couldn’t figure out which ticker you meant. Try including the symbol, like NVDA or AAPL."
+          );
+          return;
+        }
+
+        router.push(
+          `/lookup?symbol=${encodeURIComponent(symbol)}&period=${encodeURIComponent(
+            period
+          )}&interval=${encodeURIComponent(interval)}&fromAgent=1`
+        );
+        return;
+      }
+
+      if (label === "News & Sentiment") {
+        const news = json.news_result || {};
+        const company =
+          news.company || extractSymbolFromPrompt(text) || text;
+
+        router.push(
+          `/news-sentiment?company=${encodeURIComponent(company)}&fromAgent=1`
+        );
+        return;
+      }
+
+      if (label === "Sector Analysis") {
+        router.push(
+          `/sector-rotation?prompt=${encodeURIComponent(text)}&fromAgent=1`
+        );
+        return;
+      }
+
+      if (label === "SMA/EMA Analyzer") {
+        // No dedicated SMA agent yet, just send user to the page
+        router.push(`/sma-ema?prompt=${encodeURIComponent(text)}`);
+        return;
+      }
+
+      // None of the above / unknown
+      setError(
+        "I can only help with stock lookup, indicators, news, and sector questions right now. Try rephrasing your prompt."
+      );
+    } catch (err: any) {
+      console.error("agent /api/ask error", err);
+      setError(err?.message || "Something went wrong talking to the agent.");
     } finally {
       setLoading(false);
     }
@@ -78,7 +154,6 @@ export default function HomePage() {
 
   function resetDashboard() {
     setPrompt("");
-    setAnswer("");
     setError(null);
     setLoading(false);
   }
@@ -88,7 +163,6 @@ export default function HomePage() {
   }
 
   return (
-    // ⬇️ main background is now transparent so particles can be seen
     <main className="min-h-screen text-slate-100 flex flex-col items-center">
       {/* Sidebar + overlay */}
       {isMenuOpen && (
@@ -159,7 +233,6 @@ export default function HomePage() {
               />
             </nav>
 
-            {/* Bottom: sign up / log in */}
             <AuthSidebarSection onAction={closeMenu} />
           </aside>
         </>
@@ -192,40 +265,52 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Hero header + LLM search */}
+        {/* Hero header + agent search */}
         <section className="text-center space-y-5 md:space-y-6">
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
             Search for a stock to start your analysis
           </h1>
           <p className="max-w-3xl mx-auto text-sm md:text-base text-slate-400">
             Type a question and get an answer that can reference
-            lookup, technical indicators, news, and sector rotation (once all
-            services are wired up).
+            lookup, technical indicators, news, and sector rotation.
           </p>
 
-          {/* LLM search bar */}
+          {/* Agent search bar */}
           <div className="mt-4 flex justify-center">
-            <div className="w-full max-w-3xl flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-full px-4 py-2 shadow-sm">
-              <span className="text-slate-400 text-lg">🤖</span>
-              <input
-                className="flex-1 bg-transparent outline-none text-sm md:text-base text-slate-100 placeholder:text-slate-500"
-                placeholder='Example: "Summarize NVDA performance over the last year."'
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    handleAsk();
-                  }
-                }}
-              />
-              <button
-                onClick={handleAsk}
-                disabled={!prompt.trim() || loading}
-                className="text-xs md:text-sm font-medium text-sky-300 hover:text-sky-200 disabled:opacity-40"
-              >
-                {loading ? "Thinking…" : "Ask"}
-              </button>
+            <div className="w-full max-w-3xl flex flex-col gap-2">
+              <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-full px-4 py-2 shadow-sm">
+                <span className="text-slate-400 text-lg">🤖</span>
+                <input
+                  className="flex-1 bg-transparent outline-none text-sm md:text-base text-slate-100 placeholder:text-slate-500"
+                  placeholder='Example: "Summarize NVDA performance over the last year."'
+                  value={prompt}
+                  onChange={(e) => setPrompt(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleAsk(e);
+                    }
+                  }}
+                />
+                <button
+                  onClick={handleAsk}
+                  disabled={!prompt.trim() || loading}
+                  className="text-xs md:text-sm font-medium text-sky-300 hover:text-sky-200 disabled:opacity-40"
+                >
+                  {loading ? "Thinking…" : "Ask"}
+                </button>
+              </div>
+
+              {error && (
+                <div className="text-xs md:text-sm text-red-300 bg-red-950/40 border border-red-700/70 rounded-lg px-3 py-2 text-left">
+                  {error}
+                </div>
+              )}
+
+              {!error && !loading && (
+                <p className="text-xs md:text-sm text-slate-500 text-left">
+                  Ask about a ticker, news, or sectors. I’ll route it to the right tool automatically.
+                </p>
+              )}
             </div>
           </div>
         </section>
@@ -249,31 +334,21 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* LLM answer section */}
-        <section className="space-y-4">
-          {error && (
-            <div className="mb-2 rounded-md border border-red-500 bg-red-950/40 px-4 py-2 text-sm text-red-200">
-              {error}
-            </div>
-          )}
-
-          {answer && (
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 text-sm whitespace-pre-wrap">
-              {answer}
-            </div>
-          )}
+        {/* Top gainers / losers (always visible now) */}
+        <section className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <TopTable title="Top Gainers" items={topGainers} positive />
+          <TopTable title="Top Losers" items={topLosers} positive={false} />
         </section>
-
-        {/* Top gainers / losers – hide while an answer is showing */}
-        {!answer && (
-          <section className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <TopTable title="Top Gainers" items={topGainers} positive />
-            <TopTable title="Top Losers" items={topLosers} positive={false} />
-          </section>
-        )}
       </div>
     </main>
   );
+}
+
+/* ---------- helpers ---------- */
+
+function extractSymbolFromPrompt(prompt: string): string | null {
+  const m = prompt.toUpperCase().match(/\b[A-Z]{2,5}\b/);
+  return m ? m[0] : null;
 }
 
 // ------------------------------
