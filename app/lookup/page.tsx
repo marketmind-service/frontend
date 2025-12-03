@@ -51,8 +51,32 @@ type StockSuggestion = {
   type: string;
 };
 
+// ------------------
+// Period / interval
+// ------------------
+
 const PERIOD_OPTIONS = ["1d", "5d", "1mo", "6mo", "1y", "5y", "max"];
-const INTERVAL_OPTIONS = ["1m", "5m", "15m", "1d"];
+const INTRADAY_INTERVALS = ["1m", "5m", "15m"];
+const ALL_INTERVAL_OPTIONS = [...INTRADAY_INTERVALS, "1d"];
+
+function allowedIntervalsForPeriod(period: string): string[] {
+  switch (period) {
+    case "1d":
+    case "5d":
+      // intraday + daily are fine for very recent data
+      return ["1m", "5m", "15m", "1d"];
+    case "1mo":
+      // 1m is very limited in most APIs; keep 5m, 15m, 1d
+      return ["5m", "15m", "1d"];
+    case "6mo":
+    case "1y":
+    case "5y":
+    case "max":
+    default:
+      // longer ranges → just daily to avoid API failures
+      return ["1d"];
+  }
+}
 
 // Simple hard-coded trending list for the empty state
 const TRENDING_STOCKS: StockSuggestion[] = [
@@ -105,6 +129,16 @@ export default function LookupPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // keep interval valid when period changes
+  useEffect(() => {
+    const allowed = allowedIntervalsForPeriod(period);
+    if (!allowed.includes(interval)) {
+      setInterval(allowed[allowed.length - 1]); // usually falls back to "1d"
+    }
+  }, [period, interval]);
+
+  const isIntradaySelected = INTRADAY_INTERVALS.includes(interval);
+
   async function handleLookup() {
     const cleaned = ticker.trim().toUpperCase();
     if (!cleaned) return;
@@ -113,14 +147,20 @@ export default function LookupPage() {
     setError(null);
     setData(null);
 
+    // safety: recalc effective interval before sending
+    const allowed = allowedIntervalsForPeriod(period);
+    const effectiveInterval = allowed.includes(interval)
+      ? interval
+      : allowed[allowed.length - 1];
+
     try {
       const res = await fetch("/api/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          company: cleaned, // your Next.js route can map this to `company`
+          company: cleaned,
           period,
-          interval,
+          interval: effectiveInterval,
         }),
       });
 
@@ -157,6 +197,8 @@ export default function LookupPage() {
   }
 
   const chartData = buildChartData(data?.tail_ohlcv ?? null);
+  const displayedPeriod = data?.period ?? period;
+  const displayedInterval = data?.interval ?? interval;
 
   return (
     <main className="min-h-screen bg-slate-950/90 backdrop-blur text-slate-100 flex flex-col items-center">
@@ -217,15 +259,16 @@ export default function LookupPage() {
                 value={interval}
                 onChange={(e) => setInterval(e.target.value)}
               >
-                {INTERVAL_OPTIONS.map((opt) => (
+                {allowedIntervalsForPeriod(period).map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}
                   </option>
                 ))}
               </select>
               <p className="text-xs text-slate-500">
-                Spacing between points (for example 5-minute bars vs daily
-                candles).
+                {isIntradaySelected
+                  ? "Using intraday data to show recent price moves. For longer ranges, daily candles are used instead."
+                  : "Using daily candles, which work best for 6-month, 1-year, or longer views."}
               </p>
             </div>
           </div>
@@ -293,17 +336,26 @@ export default function LookupPage() {
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-slate-800 text-xs text-slate-400">
+              <div className="pt-2 border-t border-slate-800 text-xs text-slate-400 space-y-1">
                 <p>
                   Period:{" "}
-                  <span className="text-slate-100">
-                    {data.period ?? period}
-                  </span>{" "}
+                  <span className="text-slate-100">{displayedPeriod}</span>{" "}
                   • Interval:{" "}
                   <span className="text-slate-100">
-                    {data.interval ?? interval}
+                    {displayedInterval}
                   </span>
                 </p>
+                {INTRADAY_INTERVALS.includes(displayedInterval ?? "") ? (
+                  <p>
+                    Intraday view shows more detailed recent movement. For
+                    longer history, switch to a daily interval.
+                  </p>
+                ) : (
+                  <p>
+                    Daily view smooths out noise and highlights the overall
+                    trend.
+                  </p>
+                )}
               </div>
 
               {/* Price chart */}
@@ -354,7 +406,7 @@ function PriceChart({ history }: { history: PricePoint[] }) {
           <Line
             type="monotone"
             dataKey="close"
-            stroke="#22c55e" // green line
+            stroke="#22c55e"
             strokeWidth={2}
             dot={false}
             activeDot={{ r: 4 }}
@@ -410,7 +462,6 @@ function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
           setRemoteSuggestions(mapped);
         })
         .catch(() => {
-          // If Yahoo fails (CORS, network, etc.), just fall back to local list
           if (!controller.signal.aborted) {
             setRemoteSuggestions([]);
           }
@@ -423,9 +474,7 @@ function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
     };
   }, [upperQuery]);
 
-  // ---------------------------
   // Build suggestions array
-  // ---------------------------
   let suggestions: StockSuggestion[] = [];
 
   if (!upperQuery) {
@@ -478,7 +527,6 @@ function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
             }
           }}
         />
-        {/* clear button – always available while focused */}
         {(focused || value) && (
           <button
             type="button"
@@ -508,7 +556,7 @@ function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
                 onMouseDown={(e) => {
                   e.preventDefault();
                   onChange(s.symbol);
-                  setFocused(false); // hide dropdown on select
+                  setFocused(false);
                   setRemoteSuggestions([]);
                 }}
               >
@@ -527,4 +575,3 @@ function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
     </div>
   );
 }
-
