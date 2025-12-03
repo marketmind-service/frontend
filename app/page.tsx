@@ -258,7 +258,7 @@ export default function HomePage() {
           )}
 
           {answer && (
-            <div className="rounded-2xl border border-slate-800 bg-slate-900/50 p-4 text-sm whitespace-pre-wrap">
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 text-sm whitespace-pre-wrap">
               {answer}
             </div>
           )}
@@ -284,7 +284,7 @@ function ServiceTile(props: { href: string; label: string; icon: string }) {
   return (
     <Link
       href={href}
-      className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-slate-800 bg-slate-900/50 py-6 text-sm font-medium text-slate-100 shadow-sm hover:border-sky-400 hover:bg-slate-900 transition"
+      className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-slate-800 bg-slate-900/80 py-6 text-sm font-medium text-slate-100 shadow-sm hover:border-sky-400 hover:bg-slate-900 transition"
     >
       <span className="text-2xl">{icon}</span>
       <span className="text-center">{label}</span>
@@ -314,7 +314,7 @@ function SidebarLink(props: {
 function TopTable(props: { title: string; items: TopMover[]; positive: boolean }) {
   const { title, items } = props;
   return (
-    <div className="bg-slate-900/50 border border-slate-800 rounded-2xl shadow-sm overflow-hidden">
+    <div className="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-sm overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
         <h3 className="text-sm font-semibold">{title}</h3>
         <span className="text-xs text-slate-500">Updated just now</span>
