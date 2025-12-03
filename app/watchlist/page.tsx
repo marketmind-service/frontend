@@ -33,16 +33,58 @@ export default function WatchlistPage() {
   const [adding, setAdding] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // --- Auth check ---
+  // --- Load items helper ---
+  async function loadItems(userId: string) {
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase
+        .from("watchlist_items")
+        .select("*")
+        .eq("user_id", userId)
+        .order("inserted_at", { ascending: false });
+
+      if (error) {
+        console.error("Failed to load watchlist:", error);
+        return;
+      }
+
+      const mapped: WatchItem[] = (data || []).map((r: any) => ({
+        id: Number(r.id),
+        symbol: r.symbol,
+        name: r.name,
+        targetPrice:
+          r.target_price === null || r.target_price === undefined
+            ? undefined
+            : Number(r.target_price),
+        notes: r.notes ?? undefined,
+      }));
+
+      setItems(mapped);
+    } catch (e) {
+      console.error("Unexpected error loading watchlist:", e);
+    }
+  }
+
+  // --- Auth check (load items for signed-in user) ---
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => {
-      setUser(data.user ?? null);
+    supabase.auth.getUser().then(async ({ data }) => {
+      const u = data.user ?? null;
+      setUser(u);
+      if (u) {
+        await loadItems(u.id);
+      }
       setLoadingUser(false);
     });
 
     const { data: listener } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
+      async (_event, session) => {
+        const u = session?.user ?? null;
+        setUser(u);
+        if (u) {
+          await loadItems(u.id);
+        } else {
+          setItems([]); // cleared on sign-out
+        }
       }
     );
 
@@ -51,7 +93,7 @@ export default function WatchlistPage() {
     };
   }, []);
 
-  // --- Add item using lookup backend ---
+  // --- Add item using lookup backend and persist to Supabase ---
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     const trimmedSymbol = symbol.trim().toUpperCase();
@@ -60,6 +102,10 @@ export default function WatchlistPage() {
 
     if (!trimmedSymbol) {
       setFormError("Please enter a symbol.");
+      return;
+    }
+    if (!user) {
+      setFormError("You must be signed in to add items.");
       return;
     }
 
@@ -73,7 +119,7 @@ export default function WatchlistPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           company: trimmedSymbol,
-          period: "1mo", // any valid combo; we just need metadata
+          period: "1mo",
           interval: "1d",
         }),
       });
@@ -90,9 +136,7 @@ export default function WatchlistPage() {
               `Lookup failed (${errJson.source ?? "unknown"})`
           );
         } catch {
-          throw new Error(
-            `Lookup failed: ${res.status} – ${text.slice(0, 200)}`
-          );
+          throw new Error(`Lookup failed: ${res.status} – ${text.slice(0, 200)}`);
         }
       }
 
@@ -106,17 +150,39 @@ export default function WatchlistPage() {
       const resolvedName =
         json.shortName || json.company || trimmedName || resolvedSymbol;
 
-      // Add validated item
-      setItems((prev) => [
-        ...prev,
-        {
-          id: Date.now(),
-          symbol: resolvedSymbol,
-          name: resolvedName,
-          targetPrice: targetPrice ? Number(targetPrice) : undefined,
-          notes: trimmedNotes || undefined,
-        },
-      ]);
+      // Persist to Supabase
+      const { data: inserted, error: insertError } = await supabase
+        .from("watchlist_items")
+        .insert([
+          {
+            user_id: user.id,
+            symbol: resolvedSymbol,
+            name: resolvedName,
+            target_price: targetPrice ? Number(targetPrice) : null,
+            notes: trimmedNotes || null,
+          },
+        ])
+        .select()
+        .single();
+
+      if (insertError || !inserted) {
+        console.error("Insert error:", insertError);
+        throw new Error("Failed to save watchlist item.");
+      }
+
+      // Add validated DB-backed item to local state
+      const newItem: WatchItem = {
+        id: Number(inserted.id),
+        symbol: inserted.symbol,
+        name: inserted.name,
+        targetPrice:
+          inserted.target_price === null || inserted.target_price === undefined
+            ? undefined
+            : Number(inserted.target_price),
+        notes: inserted.notes ?? undefined,
+      };
+
+      setItems((prev) => [...prev, newItem]);
 
       // Clear form
       setSymbol("");
@@ -134,9 +200,25 @@ export default function WatchlistPage() {
     }
   }
 
+  // --- Remove item (delete in Supabase) ---
+  async function handleRemove(id: number) {
+    if (!user) return;
+    try {
+      const { error } = await supabase
+        .from("watchlist_items")
+        .delete()
+        .eq("id", id)
+        .eq("user_id", user.id);
 
-  function handleRemove(id: number) {
-    setItems((prev) => prev.filter((item) => item.id !== id));
+      if (error) {
+        console.error("Failed to delete watchlist item:", error);
+        return;
+      }
+
+      setItems((prev) => prev.filter((item) => item.id !== id));
+    } catch (e) {
+      console.error("Unexpected error deleting item:", e);
+    }
   }
 
   if (loadingUser) {
