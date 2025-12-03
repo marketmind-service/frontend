@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSearchParams } from "next/navigation";
 
 type NewsRow = {
   published: string;
@@ -24,8 +23,6 @@ type NewsResult = {
 type SentimentFilter = "all" | "pos" | "neu" | "neg";
 
 export default function NewsSentimentPage() {
-  const searchParams = useSearchParams();
-
   const [prompt, setPrompt] = useState("");
   const [items, setItems] = useState<number>(10);
   const [sentimentFilter, setSentimentFilter] =
@@ -84,9 +81,11 @@ export default function NewsSentimentPage() {
   // When navigated from the agent, read query params and auto-run
   useEffect(() => {
     if (bootstrapped) return;
+    if (typeof window === "undefined") return;
 
-    const companyParam = searchParams.get("company");
-    const itemsParam = searchParams.get("items");
+    const params = new URLSearchParams(window.location.search);
+    const companyParam = params.get("company");
+    const itemsParam = params.get("items");
 
     const initialCompany = companyParam ?? "";
     let initialItems = 10;
@@ -105,8 +104,7 @@ export default function NewsSentimentPage() {
     }
 
     setBootstrapped(true);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams, bootstrapped]);
+  }, [bootstrapped]);
 
   const news = data;
   const rows = news?.rows || [];
