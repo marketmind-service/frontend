@@ -1,12 +1,16 @@
 // app/api/ask/route.ts
 
+type AskRequestBody = {
+  prompt?: string;
+};
+
 export async function POST(req: Request) {
-  const base = process.env.ROUTER_BASE_URL;
+  const base = process.env.BRIDGE_URL;
 
   if (!base) {
     return new Response(
       JSON.stringify({
-        error: "ROUTER_BASE_URL not set on server",
+        error: "BRIDGE_URL not set on server",
         source: "next-api",
       }),
       {
@@ -16,8 +20,7 @@ export async function POST(req: Request) {
     );
   }
 
-  // read prompt from the frontend
-  const body = (await req.json().catch(() => null)) as { prompt?: string } | null;
+  const body = (await req.json().catch(() => null)) as AskRequestBody | null;
   const prompt = body?.prompt?.toString().trim() ?? "";
 
   if (!prompt) {
@@ -30,14 +33,14 @@ export async function POST(req: Request) {
     );
   }
 
-  // same pattern as lookup: local FastAPI vs Azure routerbridge
+  // same pattern as lookup/news/sector: local FastAPI vs Azure Function
   const trimmedBase = base.replace(/\/+$/, "");
   const isLocal =
     trimmedBase.startsWith("http://127.0.0.1") ||
     trimmedBase.startsWith("http://localhost");
 
   // local dev → FastAPI /api/ask
-  // prod (Azure) → routerbridge function /api/routerbridge
+  // Azure → routerbridge function /api/routerbridge
   const targetUrl = isLocal
     ? `${trimmedBase}/api/ask`
     : `${trimmedBase}/api/routerbridge`;
@@ -52,7 +55,6 @@ export async function POST(req: Request) {
     const text = await resp.text();
 
     if (!resp.ok) {
-      // bubble up what the router backend said so you can debug
       return new Response(
         JSON.stringify({
           error: "Router backend returned non-OK status",
@@ -67,8 +69,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // router backend already returns JSON AgentState,
-    // so just pass it straight through
+    // Pass through the AgentState JSON from router
     return new Response(text, {
       status: 200,
       headers: { "Content-Type": "application/json" },
