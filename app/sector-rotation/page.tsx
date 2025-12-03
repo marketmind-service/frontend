@@ -252,7 +252,7 @@ export default function SectorPage() {
     label: SECTOR_ETFS[t],
   }));
 
-  const [selected, setSelected] = useState<string[]>(allTickers);
+  const [selected, setSelected] = useState<string[]>([]);
   const [data, setData] = useState<SectorResult | null>(null);
   const [rows, setRows] = useState<SectorRow[]>([]);
   const [loading, setLoading] = useState(false);
