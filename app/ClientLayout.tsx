@@ -1,14 +1,14 @@
 "use client";
 
-import { ThemeProvider } from "next-themes";
+import React from "react";
 import { ParticlesBackground } from "@/app/components/ParticlesBackground";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   return (
-    <ThemeProvider attribute="class" defaultTheme="dark">
-      {/* Global particle background */}
+    <>
+      {/* Global particle background behind everything */}
       <ParticlesBackground />
       {children}
-    </ThemeProvider>
+    </>
   );
 }
