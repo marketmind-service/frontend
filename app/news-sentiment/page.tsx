@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 
 type NewsRow = {
   published: string;
@@ -23,6 +24,8 @@ type NewsResult = {
 type SentimentFilter = "all" | "pos" | "neu" | "neg";
 
 export default function NewsSentimentPage() {
+  const searchParams = useSearchParams();
+
   const [prompt, setPrompt] = useState("");
   const [items, setItems] = useState<number>(10);
   const [sentimentFilter, setSentimentFilter] =
@@ -30,9 +33,13 @@ export default function NewsSentimentPage() {
   const [data, setData] = useState<NewsResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bootstrapped, setBootstrapped] = useState(false);
 
-  async function fetchNews(e: React.FormEvent) {
-    e.preventDefault();
+  // Core news fetch logic shared by form + agent deep-link
+  async function runNews(company: string, count: number) {
+    const trimmed = company.trim();
+    if (!trimmed) return;
+
     setLoading(true);
     setError(null);
     setData(null);
@@ -42,7 +49,7 @@ export default function NewsSentimentPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // "prompt" is what user types; backend expects "company"
-        body: JSON.stringify({ company: prompt, items }),
+        body: JSON.stringify({ company: trimmed, items: count }),
       });
 
       const text = await res.text();
@@ -68,6 +75,38 @@ export default function NewsSentimentPage() {
       setLoading(false);
     }
   }
+
+  async function fetchNews(e: React.FormEvent) {
+    e.preventDefault();
+    await runNews(prompt, items);
+  }
+
+  // When navigated from the agent, read query params and auto-run
+  useEffect(() => {
+    if (bootstrapped) return;
+
+    const companyParam = searchParams.get("company");
+    const itemsParam = searchParams.get("items");
+
+    const initialCompany = companyParam ?? "";
+    let initialItems = 10;
+
+    if (itemsParam) {
+      const n = Number(itemsParam);
+      if (!Number.isNaN(n) && n > 0) {
+        initialItems = n;
+      }
+    }
+
+    if (initialCompany) {
+      setPrompt(initialCompany);
+      setItems(initialItems);
+      runNews(initialCompany, initialItems);
+    }
+
+    setBootstrapped(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, bootstrapped]);
 
   const news = data;
   const rows = news?.rows || [];

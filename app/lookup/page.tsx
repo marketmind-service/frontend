@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   ResponsiveContainer,
   LineChart,
@@ -122,6 +123,8 @@ function buildChartData(
 }
 
 export default function LookupPage() {
+  const searchParams = useSearchParams();
+
   const [ticker, setTicker] = useState("");
   const [period, setPeriod] = useState("1d");
   const [interval, setInterval] = useState("5m");
@@ -139,18 +142,17 @@ export default function LookupPage() {
 
   const isIntradaySelected = INTRADAY_INTERVALS.includes(interval);
 
-  async function handleLookup() {
-    const cleaned = ticker.trim().toUpperCase();
-    if (!cleaned) return;
+  // Core lookup logic shared by manual button + agent deep-link
+  async function runLookup(cleanedTicker: string, p: string, i: string) {
+    if (!cleanedTicker) return;
 
     setLoading(true);
     setError(null);
     setData(null);
 
-    // safety: recalc effective interval before sending
-    const allowed = allowedIntervalsForPeriod(period);
-    const effectiveInterval = allowed.includes(interval)
-      ? interval
+    const allowed = allowedIntervalsForPeriod(p);
+    const effectiveInterval = allowed.includes(i)
+      ? i
       : allowed[allowed.length - 1];
 
     try {
@@ -158,8 +160,8 @@ export default function LookupPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          company: cleaned,
-          period,
+          company: cleanedTicker,
+          period: p,
           interval: effectiveInterval,
         }),
       });
@@ -195,6 +197,38 @@ export default function LookupPage() {
       setLoading(false);
     }
   }
+
+  async function handleLookup() {
+    const cleaned = ticker.trim().toUpperCase();
+    if (!cleaned) return;
+    await runLookup(cleaned, period, interval);
+  }
+
+  // When navigated from the agent, read query params and auto-run
+  useEffect(() => {
+    const paramTicker = searchParams.get("ticker");
+    const paramPeriod = searchParams.get("period");
+    const paramInterval = searchParams.get("interval");
+
+    const initialTicker = (paramTicker ?? "").toUpperCase();
+    const initialPeriod = paramPeriod && PERIOD_OPTIONS.includes(paramPeriod)
+      ? paramPeriod
+      : "1d";
+    const initialInterval =
+      paramInterval && ALL_INTERVAL_OPTIONS.includes(paramInterval)
+        ? paramInterval
+        : "5m";
+
+    if (initialTicker) {
+      setTicker(initialTicker);
+      setPeriod(initialPeriod);
+      setInterval(initialInterval);
+      // fire the lookup once using the params
+      runLookup(initialTicker, initialPeriod, initialInterval);
+    }
+    // we intentionally only run this on first load
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
 
   const chartData = buildChartData(data?.tail_ohlcv ?? null);
   const displayedPeriod = data?.period ?? period;

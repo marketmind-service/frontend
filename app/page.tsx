@@ -12,9 +12,11 @@ type TopMover = {
   changePct: number;
 };
 
-type AgentState = {
-  prompt: string;
+type AskAgentResponse = {
+  prompt?: string;
   classification?: string[];
+  route_plan?: string[];
+  route_taken?: string[];
   lookup_result?: {
     symbol?: string | null;
     company?: string | null;
@@ -29,11 +31,13 @@ type AgentState = {
   } | null;
   sector_result?: {
     sectors?: string[] | null;
+    interpreted_results?: string | null;
     error?: string | null;
   } | null;
+  error?: string | null;
 };
 
-// Mock data – later replace with sector-rotation / market-movers microservice
+// Mock data – later replace with real “market movers” microservice
 const topGainers: TopMover[] = [
   { symbol: "SMX", name: "SMX (Security Matters)", price: 61.04, changePct: 250.8 },
   { symbol: "NVDA", name: "NVIDIA Corp", price: 123.45, changePct: 8.2 },
@@ -53,15 +57,13 @@ const topLosers: TopMover[] = [
 export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
 
-  // Agent search state
   const [prompt, setPrompt] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const router = useRouter();
 
-  async function handleAsk(e?: React.FormEvent | React.KeyboardEvent) {
-    if (e) e.preventDefault();
+  async function handleAsk() {
     const text = prompt.trim();
     if (!text) return;
 
@@ -76,71 +78,98 @@ export default function HomePage() {
       });
 
       const raw = await res.text();
-      let json: AgentState;
 
+      let data: AskAgentResponse;
       try {
-        json = JSON.parse(raw) as AgentState;
+        data = JSON.parse(raw) as AskAgentResponse;
       } catch {
-        throw new Error(`Unexpected response from /api/ask: ${raw.slice(0, 160)}`);
+        throw new Error(
+          `Unexpected response from /api/ask: ${raw.slice(0, 200)}`
+        );
       }
 
       if (!res.ok) {
-        const detail = (json as any)?.detail || (json as any)?.error;
+        const detail = (data as any)?.detail || data.error;
         throw new Error(detail || `Agent request failed: ${res.status}`);
       }
 
-      const label = json.classification?.[0] ?? "None of the above";
+      if (data.error) {
+        throw new Error(data.error);
+      }
 
-      // Route based on classification label
-      if (label === "Stock Lookup") {
-        const lookup = json.lookup_result || {};
-        const symbol =
-          lookup.symbol ||
-          lookup.company ||
-          extractSymbolFromPrompt(text);
-        const period = lookup.period || "1y";
-        const interval = lookup.interval || "1d";
+      // Decide which route the backend actually picked
+      let route = data.route_plan?.[0] ?? null;
 
-        if (!symbol) {
+      if (!route) {
+        const label = data.classification?.[0];
+        if (label === "Stock Lookup") route = "stock_lookup";
+        else if (label === "News & Sentiment") route = "news_sentiment";
+        else if (label === "Sector Analysis") route = "sector_analysis";
+        else if (label === "SMA/EMA Analyzer") route = "sma_ema";
+      }
+
+      // ---------- Stock Lookup ----------
+      if (route === "stock_lookup") {
+        const lr = data.lookup_result ?? {};
+        const ticker =
+          (lr.symbol ||
+            lr.company ||
+            extractSymbolFromPrompt(text) ||
+            "").toString().toUpperCase();
+
+        if (!ticker) {
           setError(
             "I couldn’t figure out which ticker you meant. Try including the symbol, like NVDA or AAPL."
           );
           return;
         }
 
-        router.push(
-          `/lookup?symbol=${encodeURIComponent(symbol)}&period=${encodeURIComponent(
-            period
-          )}&interval=${encodeURIComponent(interval)}&fromAgent=1`
-        );
+        const period = lr.period || "1y";
+        const interval = lr.interval || "1d";
+
+        const params = new URLSearchParams();
+        params.set("ticker", ticker);
+        if (period) params.set("period", period);
+        if (interval) params.set("interval", interval);
+
+        router.push(`/lookup?${params.toString()}`);
         return;
       }
 
-      if (label === "News & Sentiment") {
-        const news = json.news_result || {};
+      // ---------- News & Sentiment ----------
+      if (route === "news_sentiment") {
         const company =
-          news.company || extractSymbolFromPrompt(text) || text;
+          data.news_result?.company ||
+          extractSymbolFromPrompt(text) ||
+          text;
 
+        const params = new URLSearchParams();
+        if (company) params.set("company", company);
+
+        router.push(`/news-sentiment?${params.toString()}`);
+        return;
+      }
+
+      // ---------- Sector Rotation ----------
+      if (route === "sector_analysis") {
+        const sectors = data.sector_result?.sectors || [];
+        const params = new URLSearchParams();
+        if (sectors.length) params.set("sectors", sectors.join(","));
         router.push(
-          `/news-sentiment?company=${encodeURIComponent(company)}&fromAgent=1`
+          `/sector-rotation${params.toString() ? `?${params.toString()}` : ""}`
         );
         return;
       }
 
-      if (label === "Sector Analysis") {
-        router.push(
-          `/sector-rotation?prompt=${encodeURIComponent(text)}&fromAgent=1`
-        );
+      // ---------- SMA / EMA Analyzer (no backend agent yet) ----------
+      if (route === "sma_ema") {
+        const params = new URLSearchParams();
+        params.set("prompt", text);
+        router.push(`/sma-ema?${params.toString()}`);
         return;
       }
 
-      if (label === "SMA/EMA Analyzer") {
-        // No dedicated SMA agent yet, just send user to the page
-        router.push(`/sma-ema?prompt=${encodeURIComponent(text)}`);
-        return;
-      }
-
-      // None of the above / unknown
+      // Fallback
       setError(
         "I can only help with stock lookup, indicators, news, and sector questions right now. Try rephrasing your prompt."
       );
@@ -271,8 +300,8 @@ export default function HomePage() {
             Search for a stock to start your analysis
           </h1>
           <p className="max-w-3xl mx-auto text-sm md:text-base text-slate-400">
-            Type a question and get an answer that can reference
-            lookup, technical indicators, news, and sector rotation.
+            Type a question and I’ll route it to stock lookup, technical
+            indicators, news, or sector rotation automatically.
           </p>
 
           {/* Agent search bar */}
@@ -287,7 +316,8 @@ export default function HomePage() {
                   onChange={(e) => setPrompt(e.target.value)}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
-                      handleAsk(e);
+                      e.preventDefault();
+                      handleAsk();
                     }
                   }}
                 />
@@ -308,7 +338,8 @@ export default function HomePage() {
 
               {!error && !loading && (
                 <p className="text-xs md:text-sm text-slate-500 text-left">
-                  Ask about a ticker, news, or sectors. I’ll route it to the right tool automatically.
+                  Ask about a ticker, news, or sector strength. I’ll send you to
+                  the right tool and pre-fill the inputs.
                 </p>
               )}
             </div>
@@ -334,7 +365,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Top gainers / losers (always visible now) */}
+        {/* Top gainers / losers */}
         <section className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
           <TopTable title="Top Gainers" items={topGainers} positive />
           <TopTable title="Top Losers" items={topLosers} positive={false} />
