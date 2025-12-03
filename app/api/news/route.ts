@@ -1,11 +1,11 @@
 // app/api/news/route.ts
 
 export async function POST(req: Request) {
-  const base = process.env.NEWS_BASE_URL;
+  const base = process.env.BRIDGE_URL;
 
   if (!base) {
     return new Response(
-      JSON.stringify({ error: "NEWS_BASE_URL is not set on the frontend" }),
+      JSON.stringify({ error: "BRIDGE_URL is not set on the frontend" }),
       { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
