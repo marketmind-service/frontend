@@ -1,3 +1,4 @@
+// app/registry/magicui/particles.tsx
 "use client";
 
 import React, { useMemo } from "react";
@@ -5,14 +6,13 @@ import React, { useMemo } from "react";
 type ParticlesProps = {
   className?: string;
   quantity?: number;
-  ease?: number;
   color?: string;
   refresh?: boolean;
 };
 
 export function Particles({
   className,
-  quantity = 80,
+  quantity = 50,
   color = "#ffffff",
   refresh,
 }: ParticlesProps) {
@@ -58,6 +58,7 @@ export function Particles({
         .mm-particle {
           position: absolute;
           border-radius: 9999px;
+          will-change: transform, opacity;
           animation-name: mm-float-particles;
           animation-timing-function: linear;
           animation-iteration-count: infinite;
@@ -69,7 +70,7 @@ export function Particles({
             transform: translate3d(0, 0, 0) scale(1);
           }
           100% {
-            transform: translate3d(20px, -40px, 0) scale(1.1);
+            transform: translate3d(20px, -40px, 0) scale(1.08);
           }
         }
       `}</style>
