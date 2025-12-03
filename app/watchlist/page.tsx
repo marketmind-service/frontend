@@ -12,7 +12,7 @@ type WatchItem = {
   notes?: string;
 };
 
-// Minimal shape of what /api/lookup returns that we care about
+
 type LookupResponse = {
   symbol?: string;
   shortName?: string;
@@ -33,7 +33,6 @@ export default function WatchlistPage() {
   const [adding, setAdding] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  // --- Load items helper ---
   async function loadItems(userId: string) {
     if (!userId) return;
     try {
@@ -65,7 +64,7 @@ export default function WatchlistPage() {
     }
   }
 
-  // --- Auth check (load items for signed-in user) ---
+
   useEffect(() => {
     supabase.auth.getUser().then(async ({ data }) => {
       const u = data.user ?? null;
@@ -83,7 +82,7 @@ export default function WatchlistPage() {
         if (u) {
           await loadItems(u.id);
         } else {
-          setItems([]); // cleared on sign-out
+          setItems([]);
         }
       }
     );
@@ -93,7 +92,7 @@ export default function WatchlistPage() {
     };
   }, []);
 
-  // --- Add item using lookup backend and persist to Supabase ---
+
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
     const trimmedSymbol = symbol.trim().toUpperCase();
@@ -113,7 +112,6 @@ export default function WatchlistPage() {
     setAdding(true);
 
     try {
-      // Call the same lookup microservice the lookup page uses
       const res = await fetch("/api/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -127,7 +125,6 @@ export default function WatchlistPage() {
       const text = await res.text();
 
       if (!res.ok) {
-        // Try to parse backend error payload
         try {
           const errJson = JSON.parse(text);
           throw new Error(
@@ -150,7 +147,6 @@ export default function WatchlistPage() {
       const resolvedName =
         json.shortName || json.company || trimmedName || resolvedSymbol;
 
-      // Persist to Supabase
       const { data: inserted, error: insertError } = await supabase
         .from("watchlist_items")
         .insert([
@@ -170,7 +166,6 @@ export default function WatchlistPage() {
         throw new Error("Failed to save watchlist item.");
       }
 
-      // Add validated DB-backed item to local state
       const newItem: WatchItem = {
         id: Number(inserted.id),
         symbol: inserted.symbol,
@@ -184,7 +179,6 @@ export default function WatchlistPage() {
 
       setItems((prev) => [...prev, newItem]);
 
-      // Clear form
       setSymbol("");
       setName("");
       setTargetPrice("");
@@ -200,7 +194,6 @@ export default function WatchlistPage() {
     }
   }
 
-  // --- Remove item (delete in Supabase) ---
   async function handleRemove(id: number) {
     if (!user) return;
     try {
@@ -229,7 +222,6 @@ export default function WatchlistPage() {
     );
   }
 
-  // --- Not logged in state ---
   if (!user) {
     return (
       <main className="min-h-screen bg-slate-950/90 backdrop-blur text-slate-100 flex items-center justify-center px-4">
@@ -257,7 +249,6 @@ export default function WatchlistPage() {
     );
   }
 
-  // --- Logged in view ---
   return (
     <main className="min-h-screen bg-slate-950/90 backdrop-blur text-slate-100 flex flex-col items-center">
       <div className="w-full max-w-5xl px-4 py-6 md:py-8 space-y-6">
@@ -280,7 +271,6 @@ export default function WatchlistPage() {
           </div>
         </div>
 
-        {/* Add form */}
         <section className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 md:p-5 space-y-4">
           <h2 className="text-sm font-semibold">Add to watchlist</h2>
 
@@ -346,7 +336,6 @@ export default function WatchlistPage() {
           </form>
         </section>
 
-        {/* Watchlist table */}
         <section className="bg-slate-900/80 border border-slate-800 rounded-2xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
             <h2 className="text-sm font-semibold">Your tickers</h2>

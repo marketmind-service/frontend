@@ -37,7 +37,6 @@ type AskAgentResponse = {
   error?: string | null;
 };
 
-// Mock data – later replace with real “market movers” microservice
 const topGainers: TopMover[] = [
   { symbol: "SMX", name: "SMX (Security Matters)", price: 61.04, changePct: 250.8 },
   { symbol: "NVDA", name: "NVIDIA Corp", price: 123.45, changePct: 8.2 },
@@ -97,7 +96,6 @@ export default function HomePage() {
         throw new Error(data.error);
       }
 
-      // Decide which route the backend actually picked
       let route = data.route_plan?.[0] ?? null;
 
       if (!route) {
@@ -108,7 +106,6 @@ export default function HomePage() {
         else if (label === "SMA/EMA Analyzer") route = "sma_ema";
       }
 
-      // ---------- Stock Lookup ----------
       if (route === "stock_lookup") {
         const lr = data.lookup_result ?? {};
         const ticker =
@@ -136,7 +133,6 @@ export default function HomePage() {
         return;
       }
 
-      // ---------- News & Sentiment ----------
       if (route === "news_sentiment") {
         const company =
           data.news_result?.company ||
@@ -150,7 +146,6 @@ export default function HomePage() {
         return;
       }
 
-      // ---------- Sector Rotation ----------
       if (route === "sector_analysis") {
         const sectors = data.sector_result?.sectors || [];
         const params = new URLSearchParams();
@@ -161,7 +156,6 @@ export default function HomePage() {
         return;
       }
 
-      // ---------- SMA / EMA Analyzer (no backend agent yet) ----------
       if (route === "sma_ema") {
         const params = new URLSearchParams();
         params.set("prompt", text);
@@ -169,7 +163,6 @@ export default function HomePage() {
         return;
       }
 
-      // Fallback
       setError(
         "I can only help with stock lookup, indicators, news, and sector questions right now. Try rephrasing your prompt."
       );
@@ -193,7 +186,6 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen text-slate-100 flex flex-col items-center">
-      {/* Sidebar + overlay */}
       {isMenuOpen && (
         <>
           <div
@@ -268,7 +260,6 @@ export default function HomePage() {
       )}
 
       <div className="w-full max-w-6xl px-4 py-6 md:py-8 space-y-8 md:space-y-10">
-        {/* Top bar with hamburger + MarketMind title */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
@@ -294,7 +285,6 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Hero header + agent search */}
         <section className="text-center space-y-5 md:space-y-6">
           <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
             Search for a stock to start your analysis
@@ -304,7 +294,6 @@ export default function HomePage() {
             indicators, news, or sector rotation automatically.
           </p>
 
-          {/* Agent search bar */}
           <div className="mt-4 flex justify-center">
             <div className="w-full max-w-3xl flex flex-col gap-2">
               <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-full px-4 py-2 shadow-sm">
@@ -346,7 +335,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Microservice tiles */}
         <section className="space-y-3">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
             <ServiceTile href="/lookup" label="Stock Lookup" icon="🔎" />
@@ -365,7 +353,6 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Top gainers / losers */}
         <section className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
           <TopTable title="Top Gainers" items={topGainers} positive />
           <TopTable title="Top Losers" items={topLosers} positive={false} />
@@ -375,16 +362,13 @@ export default function HomePage() {
   );
 }
 
-/* ---------- helpers ---------- */
 
 function extractSymbolFromPrompt(prompt: string): string | null {
   const m = prompt.toUpperCase().match(/\b[A-Z]{2,5}\b/);
   return m ? m[0] : null;
 }
 
-// ------------------------------
-// Reusable components
-// ------------------------------
+
 function ServiceTile(props: { href: string; label: string; icon: string }) {
   const { href, label, icon } = props;
   return (

@@ -28,7 +28,7 @@ export default function LoginPage() {
       return;
     }
 
-    // Logged in successfully, send them back to the main dashboard
+
     router.push("/");
   }
 

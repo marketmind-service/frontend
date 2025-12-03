@@ -8,7 +8,7 @@ export default function AuthSidebarSection({ onAction }: { onAction?: () => void
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  // Fetch and subscribe to session
+
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user ?? null);
@@ -27,7 +27,6 @@ export default function AuthSidebarSection({ onAction }: { onAction?: () => void
     if (onAction) onAction();
   }
 
-  // Loading state
   if (loading) {
     return (
       <div className="px-4 py-4 border-t border-slate-800 text-xs text-slate-500">
@@ -36,7 +35,6 @@ export default function AuthSidebarSection({ onAction }: { onAction?: () => void
     );
   }
 
-  // Not logged in → show sign up / login
   if (!user) {
     return (
       <div className="px-4 py-4 border-t border-slate-800 space-y-3">
@@ -58,7 +56,6 @@ export default function AuthSidebarSection({ onAction }: { onAction?: () => void
     );
   }
 
-  // Logged in → show user avatar + logout
   return (
     <div className="px-4 py-4 border-t border-slate-800 space-y-3">
       <div className="flex items-center gap-3">

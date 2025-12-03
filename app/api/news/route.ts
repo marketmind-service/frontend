@@ -20,12 +20,12 @@ export async function POST(req: Request) {
     );
   }
 
-  // Allow { company } or { prompt } from the frontend
+
   const companyInput = body?.company ?? body?.prompt;
   const company =
     typeof companyInput === "string" ? companyInput.trim() : undefined;
 
-  // Default number of news items if not supplied
+
   const itemsRaw = body?.items;
   const items =
     typeof itemsRaw === "number" && Number.isFinite(itemsRaw) && itemsRaw > 0
@@ -42,7 +42,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    // This matches DirectNewsRequest in app.py
+
     const res = await fetch(`${base}/api/newsbridge`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
         headers: { "Content-Type": "application/json" },
       });
     } catch {
-      // Backend returned non-JSON (e.g. HTML error page from a proxy)
+
       return new Response(
         JSON.stringify({
           error: "Backend returned non-JSON",

@@ -32,14 +32,11 @@ export async function POST(req: Request) {
     );
   }
 
-  // Figure out whether we're talking to local FastAPI or the Azure Function
-  const trimmedBase = base.replace(/\/+$/, ""); // remove trailing slash
+  const trimmedBase = base.replace(/\/+$/, "");
   const isLocalFastApi =
     trimmedBase.startsWith("http://127.0.0.1") ||
     trimmedBase.startsWith("http://localhost");
 
-  // 👉 Local dev: FastAPI lives at /api/lookup
-  // 👉 Azure: Function lives at /api/lookupbridge
   const targetUrl = isLocalFastApi
     ? `${trimmedBase}/api/lookup`
     : `${trimmedBase}/api/lookupbridge`;

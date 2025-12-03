@@ -1,11 +1,8 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 
-/* -------------------------
-   Types – align with SectorState
-   ------------------------- */
 
 type RawSectorRow = {
   ETF: string;
@@ -60,9 +57,6 @@ type SectorResult = {
   error?: string | null;
 };
 
-/* -------------------------
-   Frontend constants
-   ------------------------- */
 
 const SECTOR_ETFS: Record<string, string> = {
   SMH: "Semiconductors",
@@ -84,9 +78,6 @@ const RISK_LABEL: Record<string, string> = {
   neutral: "Neutral",
 };
 
-/* -------------------------
-   Multi-select component
-   ------------------------- */
 
 type MultiSelectOption = {
   value: string;
@@ -178,7 +169,6 @@ function SectorMultiSelect({
         </div>
       </button>
 
-      {/* Dropdown panel */}
       {open && (
         <div className="absolute z-30 mt-2 w-full rounded-xl border border-slate-800 bg-slate-950 shadow-xl text-sm overflow-hidden">
           <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-800">
@@ -240,9 +230,6 @@ function SectorMultiSelect({
   );
 }
 
-/* -------------------------
-   Page component
-   ------------------------- */
 
 export default function SectorPage() {
   const allTickers = Object.keys(SECTOR_ETFS);
@@ -257,8 +244,37 @@ export default function SectorPage() {
   const [rows, setRows] = useState<SectorRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [autoRunPending, setAutoRunPending] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const sectorsParam = params.get("sectors");
+    const fromAgent = params.get("fromAgent");
+    if (sectorsParam) {
+      const parsed = sectorsParam
+        .split(",")
+        .map((s) => s.trim().toUpperCase())
+        .filter((s) => allTickers.includes(s));
+      if (parsed.length > 0) {
+        setSelected(parsed);
+        if (fromAgent === "1") {
+          setAutoRunPending(true);
+        }
+      }
+    }
+  }, [allTickers]);
+
+  useEffect(() => {
+    if (autoRunPending && selected.length > 0 && !loading && !data && !error) {
+      runSectorAnalysis();
+      setAutoRunPending(false);
+    }
+  }, [autoRunPending, selected, loading, data, error]);
 
   async function runSectorAnalysis() {
+    if (selected.length === 0) return;
+
     setLoading(true);
     setError(null);
     setData(null);
@@ -359,7 +375,6 @@ export default function SectorPage() {
           </p>
         </header>
 
-        {/* Controls */}
         <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 md:p-5">
           <div className="flex items-center justify-between gap-2 mb-1">
             <h2 className="text-sm font-medium text-slate-200">
@@ -398,7 +413,6 @@ export default function SectorPage() {
           </div>
         </section>
 
-        {/* Result / error */}
         <section className="space-y-3 pb-6">
           {error && (
             <div className="rounded-md border border-red-500 bg-red-950/40 px-4 py-2 text-sm text-red-200">
@@ -415,7 +429,6 @@ export default function SectorPage() {
 
           {data && (
             <div className="space-y-4">
-              {/* High-level summary card */}
               <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 space-y-3 text-sm">
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2">
@@ -441,7 +454,6 @@ export default function SectorPage() {
                   )}
                 </div>
 
-                {/* Strong / weak chips */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pt-2">
                   <div className="space-y-1">
                     <div className="text-xs uppercase text-emerald-400">
@@ -492,7 +504,6 @@ export default function SectorPage() {
                 )}
               </div>
 
-              {/* Single-sector focus card */}
               {selectedSingleRow && (
                 <div className="rounded-2xl border border-sky-800 bg-slate-900/80 p-4 text-sm space-y-2">
                   <div className="flex items-center justify-between gap-2">
@@ -570,7 +581,6 @@ export default function SectorPage() {
                 </div>
               )}
 
-              {/* Ranked comparison table */}
               {rows.length > 0 && (
                 <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
                   <h3 className="text-sm font-semibold mb-1">
@@ -643,7 +653,6 @@ export default function SectorPage() {
                 </div>
               )}
 
-              {/* Commentary */}
               {data?.interpreted_results && (
                 <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4">
                   <h3 className="text-sm font-semibold mb-2">

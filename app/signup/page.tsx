@@ -25,7 +25,7 @@ export default function SignupPage() {
     if (error) {
       setError(error.message);
     } else {
-      // Depending on settings, Supabase may send a confirmation email.
+
       setMessage("Check your email to confirm your account (if required), then log in.");
     }
     setLoading(false);

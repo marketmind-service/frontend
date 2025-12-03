@@ -33,14 +33,11 @@ export async function POST(req: Request) {
     );
   }
 
-  // same pattern as lookup/news/sector: local FastAPI vs Azure Function
   const trimmedBase = base.replace(/\/+$/, "");
   const isLocal =
     trimmedBase.startsWith("http://127.0.0.1") ||
     trimmedBase.startsWith("http://localhost");
 
-  // local dev → FastAPI /api/ask
-  // Azure → routerbridge function /api/routerbridge
   const targetUrl = isLocal
     ? `${trimmedBase}/api/ask`
     : `${trimmedBase}/api/routerbridge`;
@@ -69,7 +66,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Pass through the AgentState JSON from router
     return new Response(text, {
       status: 200,
       headers: { "Content-Type": "application/json" },

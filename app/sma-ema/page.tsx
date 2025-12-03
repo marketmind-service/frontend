@@ -13,10 +13,6 @@ import {
   Legend,
 } from "recharts";
 
-/* ==============================
-   Shared types / helpers
-   ============================== */
-
 type TailOhlcvRow = {
   Open?: number;
   High?: number;
@@ -52,7 +48,6 @@ type IndicatorPoint = PricePoint & {
   emaLong?: number | null;
 };
 
-// Convert tail_ohlcv dict into a sorted array of { time, close }
 function buildChartData(
   tail: Record<string, TailOhlcvRow> | null | undefined
 ): PricePoint[] {
@@ -84,9 +79,6 @@ function buildChartData(
   return points;
 }
 
-/* ==============================
-   SMA / EMA helpers
-   ============================== */
 
 function addSMA(
   data: IndicatorPoint[],
@@ -123,7 +115,7 @@ function addEMA(
   for (let i = 0; i < data.length; i++) {
     const price = data[i].close;
     if (ema === null) {
-      ema = price; // seed EMA with first price
+      ema = price;
     } else {
       ema = price * k + ema * (1 - k);
     }
@@ -132,9 +124,6 @@ function addEMA(
   return data;
 }
 
-/* ==============================
-   Period / Interval logic
-   ============================== */
 
 const PERIOD_OPTIONS = ["1d", "5d", "1mo", "6mo", "1y", "5y", "max"];
 const INTRADAY_INTERVALS = ["1m", "5m", "15m"];
@@ -144,21 +133,18 @@ function allowedIntervalsForPeriod(period: string): string[] {
   switch (period) {
     case "1d":
     case "5d":
-      return ["1m", "5m", "15m", "1d"]; // intraday OK
+      return ["1m", "5m", "15m", "1d"];
     case "1mo":
-      return ["5m", "15m", "1d"]; // keep 5m/15m/daily
+      return ["5m", "15m", "1d"];
     case "6mo":
     case "1y":
     case "5y":
     case "max":
     default:
-      return ["1d"]; // long range → daily only
+      return ["1d"];
   }
 }
 
-/* ==============================
-   Ticker search (same UX as lookup)
-   ============================== */
 
 type StockSuggestion = {
   symbol: string;
@@ -324,9 +310,6 @@ function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
   );
 }
 
-/* ==============================
-   Page component
-   ============================== */
 
 export default function SmaEmaPage() {
   const [ticker, setTicker] = useState("");
@@ -349,11 +332,10 @@ export default function SmaEmaPage() {
     lastEmaLong?: number | null;
   }>({});
 
-  // keep interval valid when period changes
   useEffect(() => {
     const allowed = allowedIntervalsForPeriod(period);
     if (!allowed.includes(interval)) {
-      setInterval(allowed[allowed.length - 1]); // fall back to "1d" etc.
+      setInterval(allowed[allowed.length - 1]);
     }
   }, [period, interval]);
 
@@ -489,7 +471,6 @@ export default function SmaEmaPage() {
           </h1>
         </header>
 
-        {/* Controls */}
         <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 md:p-5">
           <div className="space-y-2">
             <label className="block text-sm font-medium text-slate-200">
@@ -605,7 +586,6 @@ export default function SmaEmaPage() {
           </div>
         </section>
 
-        {/* Result / error */}
         <section className="space-y-3 pb-6">
           {error && (
             <div className="rounded-md border border-red-500 bg-red-950/40 px-4 py-2 text-sm text-red-200">
@@ -622,7 +602,6 @@ export default function SmaEmaPage() {
 
           {data && (
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 space-y-4 text-sm">
-              {/* Header / snapshot */}
               <div>
                 <h2 className="text-base font-semibold mb-1">
                   {data.shortName ?? data.company ?? data.symbol ?? "Result"}
@@ -643,7 +622,6 @@ export default function SmaEmaPage() {
                 </p>
               </div>
 
-              {/* Summary numbers */}
               {series.length > 0 && (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs text-slate-300">
                   <div>
@@ -687,7 +665,6 @@ export default function SmaEmaPage() {
                 </div>
               )}
 
-              {/* Chart */}
               <SmaEmaChart history={history} />
             </div>
           )}
@@ -697,9 +674,6 @@ export default function SmaEmaPage() {
   );
 }
 
-/* ==============================
-   Chart
-   ============================== */
 
 function SmaEmaChart({ history }: { history: IndicatorPoint[] }) {
   if (!history || history.length === 0) {
@@ -739,7 +713,6 @@ function SmaEmaChart({ history }: { history: IndicatorPoint[] }) {
             wrapperStyle={{ fontSize: "0.75rem", color: "#e5e7eb" }}
           />
 
-          {/* Close price */}
           <Line
             type="monotone"
             dataKey="close"
@@ -750,7 +723,6 @@ function SmaEmaChart({ history }: { history: IndicatorPoint[] }) {
             activeDot={{ r: 4 }}
           />
 
-          {/* SMA lines */}
           <Line
             type="monotone"
             dataKey="smaShort"
@@ -768,7 +740,6 @@ function SmaEmaChart({ history }: { history: IndicatorPoint[] }) {
             dot={false}
           />
 
-          {/* EMA lines */}
           <Line
             type="monotone"
             dataKey="emaShort"

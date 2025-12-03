@@ -32,7 +32,6 @@ export default function NewsSentimentPage() {
   const [error, setError] = useState<string | null>(null);
   const [bootstrapped, setBootstrapped] = useState(false);
 
-  // Core news fetch logic shared by form + agent deep-link
   async function runNews(company: string, count: number) {
     const trimmed = company.trim();
     if (!trimmed) return;
@@ -78,7 +77,6 @@ export default function NewsSentimentPage() {
     await runNews(prompt, items);
   }
 
-  // When navigated from the agent, read query params and auto-run
   useEffect(() => {
     if (bootstrapped) return;
     if (typeof window === "undefined") return;
@@ -109,13 +107,11 @@ export default function NewsSentimentPage() {
   const news = data;
   const rows = news?.rows || [];
 
-  // Apply sentiment filter for table + summary
   const filteredRows: NewsRow[] =
     sentimentFilter === "all"
       ? rows
       : rows.filter((r) => r.label === sentimentFilter);
 
-  // Use filtered rows for summary if any; otherwise fall back to all rows
   const summaryRows = filteredRows.length ? filteredRows : rows;
 
   const summary = summaryRows.length
@@ -132,7 +128,6 @@ export default function NewsSentimentPage() {
         const neu = summaryRows.filter((r) => r.label === "neu").length;
         const neg = summaryRows.filter((r) => r.label === "neg").length;
 
-        // Simple "market mood" label based on avg
         let mood = "Mixed / neutral";
         let moodDetail = "Headlines are balanced overall.";
         if (avg > 0.25) {
@@ -168,7 +163,6 @@ export default function NewsSentimentPage() {
             News &amp; Sentiment
           </h1>
 
-          {/* FORM */}
           <form onSubmit={fetchNews} className="flex flex-col gap-3">
             <label className="text-sm text-slate-300">
               Company or ticker
@@ -205,7 +199,6 @@ export default function NewsSentimentPage() {
             </div>
           </form>
 
-          {/* STATUS / ERROR */}
           {error && (
             <div className="text-sm text-red-300 bg-red-900/40 border border-red-700 rounded-lg px-3 py-2">
               {error}
@@ -218,7 +211,6 @@ export default function NewsSentimentPage() {
             </p>
           )}
 
-          {/* SUMMARY */}
           {news && !error && (
             <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4 space-y-3 text-sm">
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1">
@@ -243,7 +235,6 @@ export default function NewsSentimentPage() {
                 </div>
               </div>
 
-              {/* Sentiment filter controls */}
               {rows.length > 0 && (
                 <div className="flex flex-wrap gap-2 text-xs">
                   <span className="text-slate-500">Filter:</span>
@@ -322,7 +313,6 @@ export default function NewsSentimentPage() {
             </div>
           )}
 
-          {/* TABLE */}
           {filteredRows.length > 0 && (
             <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4">
               <h2 className="text-sm font-semibold mb-2">Recent headlines</h2>

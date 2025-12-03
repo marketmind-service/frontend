@@ -26,7 +26,6 @@ export async function POST(req: NextRequest) {
     trimmedBase.startsWith("http://127.0.0.1") ||
     trimmedBase.startsWith("http://localhost");
 
-  // Local FastAPI vs Azure Function
   const targetUrl = isLocalFastApi
     ? `${trimmedBase}/api/sector`
     : `${trimmedBase}/api/sectorbridge`;
@@ -54,7 +53,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // FastAPI already returns a SectorState JSON
+
     return new Response(text, {
       status: 200,
       headers: { "Content-Type": "application/json" },

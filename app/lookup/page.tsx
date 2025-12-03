@@ -12,7 +12,6 @@ import {
   CartesianGrid,
 } from "recharts";
 
-// Shape of each OHLCV row in tail_ohlcv coming from the backend
 type TailOhlcvRow = {
   Open?: number;
   High?: number;
@@ -22,7 +21,6 @@ type TailOhlcvRow = {
   Volume?: number;
 };
 
-// What FastAPI /api/lookup returns (LookupState)
 type LookupResponse = {
   // request metadata
   company?: string;
@@ -30,13 +28,11 @@ type LookupResponse = {
   interval?: string;
   error?: string | null;
 
-  // main fields we show
   symbol?: string;
   shortName?: string;
   lastPrice?: number;
   period_return_pct?: number;
 
-  // tail OHLCV block
   tail_ohlcv?: Record<string, TailOhlcvRow> | null;
 };
 
@@ -51,10 +47,6 @@ type StockSuggestion = {
   type: string;
 };
 
-// ------------------
-// Period / interval
-// ------------------
-
 const PERIOD_OPTIONS = ["1d", "5d", "1mo", "6mo", "1y", "5y", "max"];
 const INTRADAY_INTERVALS = ["1m", "5m", "15m"];
 const ALL_INTERVAL_OPTIONS = [...INTRADAY_INTERVALS, "1d"];
@@ -63,22 +55,18 @@ function allowedIntervalsForPeriod(period: string): string[] {
   switch (period) {
     case "1d":
     case "5d":
-      // intraday + daily are fine for very recent data
       return ["1m", "5m", "15m", "1d"];
     case "1mo":
-      // 1m is very limited in most APIs; keep 5m, 15m, 1d
       return ["5m", "15m", "1d"];
     case "6mo":
     case "1y":
     case "5y":
     case "max":
     default:
-      // longer ranges → just daily to avoid API failures
       return ["1d"];
   }
 }
 
-// Simple hard-coded trending list for the empty state
 const TRENDING_STOCKS: StockSuggestion[] = [
   { symbol: "NVDA", name: "NVIDIA Corporation", type: "Stock" },
   { symbol: "GOOGL", name: "Alphabet Inc.", type: "Stock" },
@@ -87,7 +75,6 @@ const TRENDING_STOCKS: StockSuggestion[] = [
   { symbol: "TSLA", name: "Tesla, Inc.", type: "Stock" },
 ];
 
-// Convert tail_ohlcv dict into a sorted array of { time, close }
 function buildChartData(
   tail: Record<string, TailOhlcvRow> | null | undefined
 ): PricePoint[] {
@@ -95,7 +82,6 @@ function buildChartData(
 
   const entries = Object.entries(tail);
 
-  // sort by timestamp key so chart goes left → right in time
   entries.sort((a, b) => {
     const ta = new Date(a[0]).getTime();
     const tb = new Date(b[0]).getTime();
@@ -108,7 +94,6 @@ function buildChartData(
     const close = row["Adj Close"] ?? row.Close;
     if (close == null) continue;
 
-    // simple label: date + maybe time slice
     const label =
       timestamp.length > 16 ? timestamp.slice(0, 16) : timestamp.slice(0, 10);
 
@@ -130,17 +115,15 @@ export default function LookupPage() {
   const [error, setError] = useState<string | null>(null);
   const [bootstrapped, setBootstrapped] = useState(false);
 
-  // keep interval valid when period changes
   useEffect(() => {
     const allowed = allowedIntervalsForPeriod(period);
     if (!allowed.includes(interval)) {
-      setInterval(allowed[allowed.length - 1]); // usually falls back to "1d"
+      setInterval(allowed[allowed.length - 1]);
     }
   }, [period, interval]);
 
   const isIntradaySelected = INTRADAY_INTERVALS.includes(interval);
 
-  // core lookup logic shared by button + deep-link auto-run
   async function runLookup(symbol: string, p: string, i: string) {
     const cleaned = symbol.trim().toUpperCase();
     if (!cleaned) return;
@@ -149,7 +132,6 @@ export default function LookupPage() {
     setError(null);
     setData(null);
 
-    // safety: recalc effective interval before sending
     const allowed = allowedIntervalsForPeriod(p);
     const effectiveInterval = allowed.includes(i)
       ? i
@@ -169,7 +151,7 @@ export default function LookupPage() {
       const text = await res.text();
 
       if (!res.ok) {
-        // try to parse FastAPI error payload
+
         try {
           const errJson = JSON.parse(text);
           throw new Error(
@@ -202,7 +184,6 @@ export default function LookupPage() {
     await runLookup(ticker, period, interval);
   }
 
-  // When navigated from the agent, read query params and auto-run
   useEffect(() => {
     if (bootstrapped) return;
     if (typeof window === "undefined") return;
@@ -233,7 +214,7 @@ export default function LookupPage() {
   return (
     <main className="min-h-screen bg-slate-950/90 backdrop-blur text-slate-100 flex flex-col items-center">
       <div className="w-full max-w-4xl px-4 py-6 md:py-8 space-y-6">
-        {/* Top bar */}
+
         <header className="mb-4 space-y-2">
           <Link
             href="/"
@@ -246,7 +227,6 @@ export default function LookupPage() {
           </h1>
         </header>
 
-        {/* Controls */}
         <section className="space-y-4 rounded-2xl border border-slate-800 bg-slate-900/70 p-4 md:p-5">
           <div className="space-y-2">
             <label className="block text-sm font-medium text-slate-200">
@@ -314,7 +294,6 @@ export default function LookupPage() {
           </div>
         </section>
 
-        {/* Result / error */}
         <section className="space-y-3 pb-6">
           {error && (
             <div className="rounded-md border border-red-500 bg-red-950/40 px-4 py-2 text-sm text-red-200">
@@ -332,7 +311,6 @@ export default function LookupPage() {
 
           {data && (
             <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-4 space-y-4 text-sm">
-              {/* Header / snapshot */}
               <div>
                 <h2 className="text-base font-semibold mb-1">
                   {data.shortName ?? data.company ?? data.symbol ?? "Result"}
@@ -388,7 +366,6 @@ export default function LookupPage() {
                 )}
               </div>
 
-              {/* Price chart */}
               <PriceChart history={chartData} />
             </div>
           )}
@@ -447,9 +424,6 @@ function PriceChart({ history }: { history: PricePoint[] }) {
   );
 }
 
-/* ------------------------------
-   Search bar with trending + API suggestions
-   ------------------------------ */
 
 type TickerSearchProps = {
   value: string;
@@ -466,7 +440,6 @@ function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
   const query = value.trim();
   const upperQuery = query.toUpperCase();
 
-  // Try to fetch live suggestions from Yahoo Finance search API
   useEffect(() => {
     if (!upperQuery) {
       setRemoteSuggestions([]);
@@ -496,7 +469,7 @@ function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
             setRemoteSuggestions([]);
           }
         });
-    }, 250); // debounce
+    }, 250);
 
     return () => {
       clearTimeout(timeoutId);
@@ -504,14 +477,11 @@ function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
     };
   }, [upperQuery]);
 
-  // Build suggestions array
   let suggestions: StockSuggestion[] = [];
 
   if (!upperQuery) {
-    // Empty input → static trending list
     suggestions = TRENDING_STOCKS.slice(0, 4);
   } else {
-    // Prefer remote suggestions if we have them, otherwise fall back to TRENDING
     const source =
       remoteSuggestions.length > 0 ? remoteSuggestions : TRENDING_STOCKS;
 
@@ -537,7 +507,6 @@ function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
   return (
     <div className="relative">
       <div className="flex items-center rounded-full bg-slate-950 border border-slate-700 px-3 py-2 text-sm focus-within:border-sky-500">
-        {/* search icon */}
         <span className="mr-2 text-slate-500">🔍</span>
         <input
           className="flex-1 bg-transparent outline-none text-slate-100 placeholder:text-slate-500"
