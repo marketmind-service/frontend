@@ -5,7 +5,7 @@ import React, { useMemo } from "react";
 type ParticlesProps = {
   className?: string;
   quantity?: number;
-  ease?: number; // kept for API compatibility
+  ease?: number;
   color?: string;
   refresh?: boolean;
 };
@@ -19,12 +19,12 @@ export function Particles({
   const particles = useMemo(() => {
     return Array.from({ length: quantity }).map((_, i) => ({
       id: i,
-      top: Math.random() * 100,   // %
-      left: Math.random() * 100,  // %
-      size: 2 + Math.random() * 3, // px
+      top: Math.random() * 100,
+      left: Math.random() * 100,
+      size: 2 + Math.random() * 3,
       opacity: 0.3 + Math.random() * 0.4,
-      duration: 10 + Math.random() * 20, // seconds
-      delay: Math.random() * -20, // negative delay so animation is desynced
+      duration: 10 + Math.random() * 20,
+      delay: Math.random() * -20,
     }));
   }, [quantity, refresh]);
 
