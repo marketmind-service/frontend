@@ -20,18 +20,9 @@ type NewsResult = {
   error?: string | null;
 };
 
-type AgentState = {
-  prompt: string;
-  classification: string[];
-  route_plan: string[];
-  route_taken: string[];
-  lookup_result?: Record<string, any> | null;
-  news_result?: NewsResult | null;
-};
-
 export default function NewsSentimentPage() {
   const [prompt, setPrompt] = useState("");
-  const [data, setData] = useState<AgentState | null>(null);
+  const [data, setData] = useState<NewsResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,7 +36,8 @@ export default function NewsSentimentPage() {
       const res = await fetch("/api/news", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt }),
+        // "prompt" is what user types; backend expects "company"
+        body: JSON.stringify({ company: prompt, items: 10 }),
       });
 
       const text = await res.text();
@@ -54,13 +46,15 @@ export default function NewsSentimentPage() {
       try {
         json = JSON.parse(text);
       } catch {
-        throw new Error(`Unexpected response from /api/news: ${text.slice(0, 120)}`);
+        throw new Error(
+          `Unexpected response from /api/news: ${text.slice(0, 120)}`
+        );
       }
 
       if (!res.ok || json.error) {
         setError(json.error || `Request failed with status ${res.status}`);
       } else {
-        setData(json as AgentState);
+        setData(json as NewsResult);
       }
     } catch (err: any) {
       console.error("news-sentiment error", err);
@@ -70,7 +64,8 @@ export default function NewsSentimentPage() {
     }
   }
 
-  const news = data?.news_result;
+  // Now the returned object IS the news result
+  const news = data;
   const rows = news?.rows || [];
 
   const summary = rows.length
@@ -192,9 +187,7 @@ export default function NewsSentimentPage() {
           {/* TABLE */}
           {rows.length > 0 && (
             <div className="bg-slate-950/60 border border-slate-800 rounded-xl p-4">
-              <h2 className="text-sm font-semibold mb-2">
-                Recent headlines
-              </h2>
+              <h2 className="text-sm font-semibold mb-2">Recent headlines</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-xs md:text-sm border-collapse">
                   <thead>

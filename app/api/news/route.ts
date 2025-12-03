@@ -20,23 +20,37 @@ export async function POST(req: Request) {
     );
   }
 
-  const prompt = body?.prompt;
-  if (!prompt || typeof prompt !== "string") {
+  // Allow { company } or { prompt } from the frontend
+  const companyInput = body?.company ?? body?.prompt;
+  const company =
+    typeof companyInput === "string" ? companyInput.trim() : undefined;
+
+  // Default number of news items if not supplied
+  const itemsRaw = body?.items;
+  const items =
+    typeof itemsRaw === "number" && Number.isFinite(itemsRaw) && itemsRaw > 0
+      ? itemsRaw
+      : 10;
+
+  if (!company) {
     return new Response(
-      JSON.stringify({ error: "Missing or invalid 'prompt'" }),
+      JSON.stringify({
+        error: "Missing or invalid 'company' (or 'prompt')",
+      }),
       { status: 400, headers: { "Content-Type": "application/json" } }
     );
   }
 
   try {
-    const res = await fetch(`${base}/api/news-agent`, {
+    // This matches DirectNewsRequest in app.py
+    const res = await fetch(`${base}/api/news`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prompt }),
+      body: JSON.stringify({ company, items }),
     });
 
     const text = await res.text();
-    // Pass backend JSON through as-is if possible
+
     try {
       const json = JSON.parse(text);
       return new Response(JSON.stringify(json), {
@@ -44,7 +58,7 @@ export async function POST(req: Request) {
         headers: { "Content-Type": "application/json" },
       });
     } catch {
-      // Backend returned non-JSON, wrap it
+      // Backend returned non-JSON (e.g. HTML error page from a proxy)
       return new Response(
         JSON.stringify({
           error: "Backend returned non-JSON",

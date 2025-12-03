@@ -13,7 +13,7 @@ type ParticlesProps = {
 export function Particles({
   className,
   quantity = 50,
-  color = "#ffffff",
+  color = "#374663",
   refresh,
 }: ParticlesProps) {
   const particles = useMemo(() => {
