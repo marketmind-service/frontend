@@ -21,9 +21,9 @@ export function Particles({
       id: i,
       top: Math.random() * 100,
       left: Math.random() * 100,
-      size: 2 + Math.random() * 3,
-      opacity: 0.3 + Math.random() * 0.4,
-      duration: 10 + Math.random() * 20,
+      size: 3 + Math.random() * 5,
+      opacity: 0.6 + Math.random() * 0.4,
+      duration: 12 + Math.random() * 15,
       delay: Math.random() * -20,
     }));
   }, [quantity, refresh]);
