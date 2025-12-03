@@ -43,7 +43,7 @@ export async function POST(req: Request) {
 
   try {
     // This matches DirectNewsRequest in app.py
-    const res = await fetch(`${base}/api/news`, {
+    const res = await fetch(`${base}/api/newsbridge`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ company, items }),

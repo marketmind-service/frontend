@@ -33,7 +33,7 @@ export default function NewsSentimentPage() {
     setData(null);
 
     try {
-      const res = await fetch("/api/news", {
+      const res = await fetch("/api/newsbridge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         // "prompt" is what user types; backend expects "company"
@@ -47,7 +47,7 @@ export default function NewsSentimentPage() {
         json = JSON.parse(text);
       } catch {
         throw new Error(
-          `Unexpected response from /api/news: ${text.slice(0, 120)}`
+          `Unexpected response from /api/newsbridge: ${text.slice(0, 120)}`
         );
       }
 
