@@ -3,6 +3,9 @@
 import { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 
+/* -------------------------
+   Types – align with SectorState
+   ------------------------- */
 
 type RawSectorRow = {
   ETF: string;
@@ -57,6 +60,9 @@ type SectorResult = {
   error?: string | null;
 };
 
+/* -------------------------
+   Frontend constants
+   ------------------------- */
 
 const SECTOR_ETFS: Record<string, string> = {
   SMH: "Semiconductors",
@@ -78,6 +84,9 @@ const RISK_LABEL: Record<string, string> = {
   neutral: "Neutral",
 };
 
+/* -------------------------
+   Multi-select component
+   ------------------------- */
 
 type MultiSelectOption = {
   value: string;
@@ -126,7 +135,6 @@ function SectorMultiSelect({
 
   return (
     <div className="relative">
-      {/* Closed pill */}
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
@@ -230,6 +238,9 @@ function SectorMultiSelect({
   );
 }
 
+/* -------------------------
+   Page component
+   ------------------------- */
 
 export default function SectorPage() {
   const allTickers = Object.keys(SECTOR_ETFS);
@@ -244,37 +255,9 @@ export default function SectorPage() {
   const [rows, setRows] = useState<SectorRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [autoRunPending, setAutoRunPending] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const params = new URLSearchParams(window.location.search);
-    const sectorsParam = params.get("sectors");
-    const fromAgent = params.get("fromAgent");
-    if (sectorsParam) {
-      const parsed = sectorsParam
-        .split(",")
-        .map((s) => s.trim().toUpperCase())
-        .filter((s) => allTickers.includes(s));
-      if (parsed.length > 0) {
-        setSelected(parsed);
-        if (fromAgent === "1") {
-          setAutoRunPending(true);
-        }
-      }
-    }
-  }, [allTickers]);
-
-  useEffect(() => {
-    if (autoRunPending && selected.length > 0 && !loading && !data && !error) {
-      runSectorAnalysis();
-      setAutoRunPending(false);
-    }
-  }, [autoRunPending, selected, loading, data, error]);
+  const [autoRunFromAgent, setAutoRunFromAgent] = useState(false);
 
   async function runSectorAnalysis() {
-    if (selected.length === 0) return;
-
     setLoading(true);
     setError(null);
     setData(null);
@@ -355,10 +338,37 @@ export default function SectorPage() {
 
   const multiCompare = selected.length > 1;
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const sectorsParam = params.get("sectors");
+    const fromAgent = params.get("fromAgent");
+
+    if (sectorsParam) {
+      const parts = sectorsParam
+        .split(",")
+        .map((s) => s.trim().toUpperCase())
+        .filter(Boolean);
+      if (parts.length) {
+        setSelected(parts);
+      }
+    }
+
+    if (fromAgent === "1") {
+      setAutoRunFromAgent(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!autoRunFromAgent) return;
+    if (selected.length === 0) return;
+    runSectorAnalysis();
+    setAutoRunFromAgent(false);
+  }, [autoRunFromAgent, selected]);
+
   return (
     <main className="min-h-screen bg-slate-950/90 backdrop-blur text-slate-100 flex flex-col items-center">
       <div className="w-full max-w-5xl px-4 py-6 md:py-8 space-y-6">
-        {/* Top bar */}
         <header className="mb-4 space-y-2">
           <Link
             href="/"
