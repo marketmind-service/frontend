@@ -22,7 +22,7 @@ type TailOhlcvRow = {
   Volume?: number;
 };
 
-// What FastAPI /api/bridge_url returns (LookupState)
+// What FastAPI /api/lookup returns (LookupState)
 type LookupResponse = {
   // request metadata
   company?: string;
@@ -114,7 +114,7 @@ export default function LookupPage() {
     setData(null);
 
     try {
-      const res = await fetch("/api/bridge_url", {
+      const res = await fetch("/api/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

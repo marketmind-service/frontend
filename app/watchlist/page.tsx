@@ -12,7 +12,7 @@ type WatchItem = {
   notes?: string;
 };
 
-// Minimal shape of what /api/bridge_url returns that we care about
+// Minimal shape of what /api/lookup returns that we care about
 type LookupResponse = {
   symbol?: string;
   shortName?: string;
@@ -68,7 +68,7 @@ export default function WatchlistPage() {
 
     try {
       // Call the same lookup microservice the lookup page uses
-      const res = await fetch("/api/bridge_url", {
+      const res = await fetch("/api/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
