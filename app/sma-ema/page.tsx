@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import {
   ResponsiveContainer,
@@ -13,9 +13,9 @@ import {
   Legend,
 } from "recharts";
 
-// ------------------------------
-// Types copied from lookup page
-// ------------------------------
+/* ==============================
+   Shared types / helpers
+   ============================== */
 
 type TailOhlcvRow = {
   Open?: number;
@@ -45,8 +45,14 @@ type PricePoint = {
   close: number;
 };
 
+type IndicatorPoint = PricePoint & {
+  smaShort?: number | null;
+  smaLong?: number | null;
+  emaShort?: number | null;
+  emaLong?: number | null;
+};
+
 // Convert tail_ohlcv dict into a sorted array of { time, close }
-// (same logic as lookup page)
 function buildChartData(
   tail: Record<string, TailOhlcvRow> | null | undefined
 ): PricePoint[] {
@@ -78,16 +84,9 @@ function buildChartData(
   return points;
 }
 
-// ------------------------------
-// Indicator helpers (SMA / EMA)
-// ------------------------------
-
-type IndicatorPoint = PricePoint & {
-  smaShort?: number | null;
-  smaLong?: number | null;
-  emaShort?: number | null;
-  emaLong?: number | null;
-};
+/* ==============================
+   SMA / EMA helpers
+   ============================== */
 
 function addSMA(
   data: IndicatorPoint[],
@@ -124,7 +123,7 @@ function addEMA(
   for (let i = 0; i < data.length; i++) {
     const price = data[i].close;
     if (ema === null) {
-      ema = price; // simple seeding
+      ema = price; // seed EMA with first price
     } else {
       ema = price * k + ema * (1 - k);
     }
@@ -133,12 +132,201 @@ function addEMA(
   return data;
 }
 
-// ------------------------------
-// Page component
-// ------------------------------
+/* ==============================
+   Period / Interval logic
+   ============================== */
 
 const PERIOD_OPTIONS = ["1d", "5d", "1mo", "6mo", "1y", "5y", "max"];
-const INTERVAL_OPTIONS = ["1m", "5m", "15m", "1d"];
+const INTRADAY_INTERVALS = ["1m", "5m", "15m"];
+const ALL_INTERVAL_OPTIONS = [...INTRADAY_INTERVALS, "1d"];
+
+function allowedIntervalsForPeriod(period: string): string[] {
+  switch (period) {
+    case "1d":
+    case "5d":
+      return ["1m", "5m", "15m", "1d"]; // intraday OK
+    case "1mo":
+      return ["5m", "15m", "1d"]; // keep 5m/15m/daily
+    case "6mo":
+    case "1y":
+    case "5y":
+    case "max":
+    default:
+      return ["1d"]; // long range → daily only
+  }
+}
+
+/* ==============================
+   Ticker search (same UX as lookup)
+   ============================== */
+
+type StockSuggestion = {
+  symbol: string;
+  name: string;
+  type: string;
+};
+
+const TRENDING_STOCKS: StockSuggestion[] = [
+  { symbol: "NVDA", name: "NVIDIA Corporation", type: "Stock" },
+  { symbol: "AAPL", name: "Apple Inc.", type: "Stock" },
+  { symbol: "MSFT", name: "Microsoft Corporation", type: "Stock" },
+  { symbol: "TSLA", name: "Tesla, Inc.", type: "Stock" },
+  { symbol: "AMD", name: "Advanced Micro Devices, Inc.", type: "Stock" },
+];
+
+type TickerSearchProps = {
+  value: string;
+  onChange: (val: string) => void;
+  onSubmit: () => void;
+};
+
+function TickerSearch({ value, onChange, onSubmit }: TickerSearchProps) {
+  const [focused, setFocused] = useState(false);
+  const [remoteSuggestions, setRemoteSuggestions] = useState<StockSuggestion[]>(
+    []
+  );
+
+  const query = value.trim();
+  const upperQuery = query.toUpperCase();
+
+  useEffect(() => {
+    if (!upperQuery) {
+      setRemoteSuggestions([]);
+      return;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      fetch(
+        `https://query1.finance.yahoo.com/v1/finance/search?q=${encodeURIComponent(
+          upperQuery
+        )}&quotesCount=5&newsCount=0`,
+        { signal: controller.signal }
+      )
+        .then((res) => (res.ok ? res.json() : Promise.reject()))
+        .then((json) => {
+          const quotes = (json?.quotes ?? []) as any[];
+          const mapped: StockSuggestion[] = quotes.map((q) => ({
+            symbol: q.symbol,
+            name: q.shortname || q.longname || q.symbol,
+            type: q.quoteType || "Stock",
+          }));
+          setRemoteSuggestions(mapped);
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) {
+            setRemoteSuggestions([]);
+          }
+        });
+    }, 250);
+
+    return () => {
+      clearTimeout(timeoutId);
+      controller.abort();
+    };
+  }, [upperQuery]);
+
+  let suggestions: StockSuggestion[] = [];
+
+  if (!upperQuery) {
+    suggestions = TRENDING_STOCKS.slice(0, 4);
+  } else {
+    const source =
+      remoteSuggestions.length > 0 ? remoteSuggestions : TRENDING_STOCKS;
+
+    const startsWith = source.filter((s) =>
+      s.symbol.toUpperCase().startsWith(upperQuery)
+    );
+    const nameMatch = source.filter(
+      (s) =>
+        !startsWith.includes(s) &&
+        s.name.toUpperCase().includes(upperQuery)
+    );
+
+    suggestions = [...startsWith, ...nameMatch].slice(0, 4);
+  }
+
+  const showDropdown = focused && suggestions.length > 0;
+
+  function handleClear() {
+    onChange("");
+    setRemoteSuggestions([]);
+  }
+
+  return (
+    <div className="relative">
+      <div className="flex items-center rounded-full bg-slate-950 border border-slate-700 px-3 py-2 text-sm focus-within:border-sky-500">
+        <span className="mr-2 text-slate-500">🔍</span>
+        <input
+          className="flex-1 bg-transparent outline-none text-slate-100 placeholder:text-slate-500"
+          placeholder="Single ticker symbol (for example AAPL or NVDA)…"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => {
+            setTimeout(() => setFocused(false), 100);
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") {
+              e.preventDefault();
+              onSubmit();
+            } else if (e.key === "Escape") {
+              handleClear();
+            }
+          }}
+        />
+        {(focused || value) && (
+          <button
+            type="button"
+            onMouseDown={(e) => {
+              e.preventDefault();
+              handleClear();
+            }}
+            className="ml-2 text-slate-400 hover:text-slate-200 text-xs"
+          >
+            ✕
+          </button>
+        )}
+      </div>
+
+      {showDropdown && (
+        <div className="absolute z-20 mt-1 w-full rounded-xl bg-slate-950 border border-slate-800 shadow-lg text-sm overflow-hidden">
+          {!upperQuery && (
+            <div className="px-3 py-2 text-xs font-semibold text-slate-400 border-b border-slate-800">
+              Trending
+            </div>
+          )}
+          <ul>
+            {suggestions.map((s) => (
+              <li
+                key={s.symbol}
+                className="flex items-center justify-between px-3 py-2 hover:bg-slate-900 cursor-pointer"
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  onChange(s.symbol);
+                  setFocused(false);
+                  setRemoteSuggestions([]);
+                }}
+              >
+                <div className="flex flex-col">
+                  <span className="font-semibold text-slate-100">
+                    {s.symbol}
+                  </span>
+                  <span className="text-xs text-slate-400">{s.name}</span>
+                </div>
+                <span className="text-xs text-slate-500">{s.type}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ==============================
+   Page component
+   ============================== */
 
 export default function SmaEmaPage() {
   const [ticker, setTicker] = useState("");
@@ -161,6 +349,43 @@ export default function SmaEmaPage() {
     lastEmaLong?: number | null;
   }>({});
 
+  // keep interval valid when period changes
+  useEffect(() => {
+    const allowed = allowedIntervalsForPeriod(period);
+    if (!allowed.includes(interval)) {
+      setInterval(allowed[allowed.length - 1]); // fall back to "1d" etc.
+    }
+  }, [period, interval]);
+
+  const isIntradaySelected = INTRADAY_INTERVALS.includes(interval);
+
+  function handleShortChange(raw: string) {
+    let val = parseInt(raw, 10);
+    if (Number.isNaN(val)) val = 5;
+    val = Math.max(2, Math.min(500, val));
+    // ensure short < long
+    if (val >= longWindow) {
+      setLongWindow(Math.min(600, val + 5));
+    }
+    setShortWindow(val);
+  }
+
+  function handleLongChange(raw: string) {
+    let val = parseInt(raw, 10);
+    if (Number.isNaN(val)) val = 50;
+    val = Math.max(3, Math.min(600, val));
+    // ensure long > short
+    if (val <= shortWindow) {
+      setShortWindow(Math.max(2, val - 5));
+    }
+    setLongWindow(val);
+  }
+
+  function applyPreset(shortW: number, longW: number) {
+    setShortWindow(shortW);
+    setLongWindow(longW);
+  }
+
   async function handleAnalyze() {
     const cleaned = ticker.trim().toUpperCase();
     if (!cleaned) return;
@@ -171,6 +396,11 @@ export default function SmaEmaPage() {
     setSeries([]);
     setSummary({});
 
+    const allowed = allowedIntervalsForPeriod(period);
+    const effectiveInterval = allowed.includes(interval)
+      ? interval
+      : allowed[allowed.length - 1];
+
     try {
       const res = await fetch("/api/lookup", {
         method: "POST",
@@ -178,7 +408,7 @@ export default function SmaEmaPage() {
         body: JSON.stringify({
           company: cleaned,
           period,
-          interval,
+          interval: effectiveInterval,
         }),
       });
 
@@ -213,7 +443,7 @@ export default function SmaEmaPage() {
       }
 
       const sWin = Math.max(2, shortWindow);
-      const lWin = Math.max(2, longWindow);
+      const lWin = Math.max(3, longWindow);
 
       let enriched: IndicatorPoint[] = base.map((p) => ({ ...p }));
 
@@ -240,6 +470,8 @@ export default function SmaEmaPage() {
   }
 
   const history = series;
+  const displayedPeriod = data?.period ?? period;
+  const displayedInterval = data?.interval ?? interval;
 
   return (
     <main className="min-h-screen bg-slate-950/90 backdrop-blur text-slate-100 flex flex-col items-center">
@@ -263,17 +495,10 @@ export default function SmaEmaPage() {
             <label className="block text-sm font-medium text-slate-200">
               Ticker / Company
             </label>
-            <input
-              className="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm outline-none focus:border-sky-500"
-              placeholder="e.g. AAPL, MSFT, NVDA"
+            <TickerSearch
               value={ticker}
-              onChange={(e) => setTicker(e.target.value.toUpperCase())}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault();
-                  handleAnalyze();
-                }
-              }}
+              onChange={(v) => setTicker(v.toUpperCase())}
+              onSubmit={handleAnalyze}
             />
           </div>
 
@@ -307,53 +532,65 @@ export default function SmaEmaPage() {
                 value={interval}
                 onChange={(e) => setInterval(e.target.value)}
               >
-                {INTERVAL_OPTIONS.map((opt) => (
+                {allowedIntervalsForPeriod(period).map((opt) => (
                   <option key={opt} value={opt}>
                     {opt}
                   </option>
                 ))}
               </select>
               <p className="text-xs text-slate-500">
-                Spacing between points (for example 5-minute bars vs daily
-                candles).
+                {isIntradaySelected
+                  ? "Using intraday data to show short-term moves. For longer periods, we switch to daily candles."
+                  : "Using daily candles, which are better for 6-month, 1-year, or longer views."}
               </p>
             </div>
 
             <div className="space-y-2">
               <label className="block text-sm font-medium text-slate-200">
-                Moving average windows (short / long)
+                Moving average windows
               </label>
               <div className="flex gap-2">
-                <input
-                  type="number"
-                  min={2}
-                  className="w-1/2 rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm outline-none focus:border-sky-500"
-                  value={shortWindow}
-                  onChange={(e) =>
-                    setShortWindow(
-                      Number.isNaN(Number(e.target.value))
-                        ? 20
-                        : Number(e.target.value)
-                    )
-                  }
-                />
-                <input
-                  type="number"
-                  min={2}
-                  className="w-1/2 rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm outline-none focus:border-sky-500"
-                  value={longWindow}
-                  onChange={(e) =>
-                    setLongWindow(
-                      Number.isNaN(Number(e.target.value))
-                        ? 50
-                        : Number(e.target.value)
-                    )
-                  }
-                />
+                <div className="flex-1">
+                  <div className="text-xs text-slate-400 mb-1">Short</div>
+                  <input
+                    type="number"
+                    min={2}
+                    className="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm outline-none focus:border-sky-500"
+                    value={shortWindow}
+                    onChange={(e) => handleShortChange(e.target.value)}
+                  />
+                </div>
+                <div className="flex-1">
+                  <div className="text-xs text-slate-400 mb-1">Long</div>
+                  <input
+                    type="number"
+                    min={3}
+                    className="w-full rounded-md bg-slate-950 border border-slate-700 px-3 py-2 text-sm outline-none focus:border-sky-500"
+                    value={longWindow}
+                    onChange={(e) => handleLongChange(e.target.value)}
+                  />
+                </div>
               </div>
               <p className="text-xs text-slate-500">
-                Number of data points used for each SMA / EMA line.
+                Number of data points used for each SMA / EMA line. Short
+                reacts faster, long tracks the big trend.
               </p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={() => applyPreset(20, 50)}
+                  className="rounded-full border border-slate-700 px-2 py-1 text-[11px] text-slate-200 hover:border-sky-500"
+                >
+                  20 / 50 (swing)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => applyPreset(50, 200)}
+                  className="rounded-full border border-slate-700 px-2 py-1 text-[11px] text-slate-200 hover:border-sky-500"
+                >
+                  50 / 200 (long term)
+                </button>
+              </div>
             </div>
           </div>
 
@@ -394,6 +631,14 @@ export default function SmaEmaPage() {
                   Symbol:{" "}
                   <span className="text-slate-100 font-mono">
                     {data.symbol ?? "N/A"}
+                  </span>
+                </p>
+                <p className="text-xs text-slate-500 mt-1">
+                  Period:{" "}
+                  <span className="text-slate-100">{displayedPeriod}</span> •
+                  Interval:{" "}
+                  <span className="text-slate-100">
+                    {displayedInterval}
                   </span>
                 </p>
               </div>
@@ -452,9 +697,9 @@ export default function SmaEmaPage() {
   );
 }
 
-// ------------------------------
-// Chart component
-// ------------------------------
+/* ==============================
+   Chart
+   ============================== */
 
 function SmaEmaChart({ history }: { history: IndicatorPoint[] }) {
   if (!history || history.length === 0) {
