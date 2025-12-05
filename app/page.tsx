@@ -5,13 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import AuthSidebarSection from "@/app/auth/AuthSidebarSection";
 
-type TopMover = {
-  symbol: string;
-  name: string;
-  price: number;
-  changePct: number;
-};
-
 type AskAgentResponse = {
   prompt?: string;
   classification?: string[];
@@ -36,22 +29,6 @@ type AskAgentResponse = {
   } | null;
   error?: string | null;
 };
-
-const topGainers: TopMover[] = [
-  { symbol: "SMX", name: "SMX (Security Matters)", price: 61.04, changePct: 250.8 },
-  { symbol: "NVDA", name: "NVIDIA Corp", price: 123.45, changePct: 8.2 },
-  { symbol: "META", name: "Meta Platforms", price: 320.12, changePct: 5.7 },
-  { symbol: "AMD", name: "Advanced Micro Devices", price: 110.5, changePct: 4.9 },
-  { symbol: "TSLA", name: "Tesla", price: 210.3, changePct: 4.3 },
-];
-
-const topLosers: TopMover[] = [
-  { symbol: "ANPA", name: "Rich Sparkle Holdings", price: 16.31, changePct: -38.57 },
-  { symbol: "XYZ", name: "Example Corp", price: 9.12, changePct: -12.4 },
-  { symbol: "ABC", name: "Sample Industries", price: 45.6, changePct: -9.8 },
-  { symbol: "QQQ", name: "Test Global", price: 30.1, changePct: -7.2 },
-  { symbol: "RNDM", name: "Random Co", price: 5.4, changePct: -6.5 },
-];
 
 export default function HomePage() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -147,18 +124,18 @@ export default function HomePage() {
       }
 
       if (route === "sector_analysis") {
-          const sectors = data.sector_result?.sectors || [];
-          const params = new URLSearchParams();
+        const sectors = data.sector_result?.sectors || [];
+        const params = new URLSearchParams();
 
-          if (sectors.length) {
-            params.set("sectors", sectors.join(","));
-          }
+        if (sectors.length) {
+          params.set("sectors", sectors.join(","));
+        }
 
-          params.set("fromAgent", "1");
+        params.set("fromAgent", "1");
 
-          const qs = params.toString();
-          router.push(`/sector-rotation${qs ? `?${qs}` : ""}`);
-          return;
+        const qs = params.toString();
+        router.push(`/sector-rotation${qs ? `?${qs}` : ""}`);
+        return;
       }
 
       if (route === "sma_ema") {
@@ -357,22 +334,15 @@ export default function HomePage() {
             />
           </div>
         </section>
-
-        <section className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-6">
-          <TopTable title="Top Gainers" items={topGainers} positive />
-          <TopTable title="Top Losers" items={topLosers} positive={false} />
-        </section>
       </div>
     </main>
   );
 }
 
-
 function extractSymbolFromPrompt(prompt: string): string | null {
   const m = prompt.toUpperCase().match(/\b[A-Z]{2,5}\b/);
   return m ? m[0] : null;
 }
-
 
 function ServiceTile(props: { href: string; label: string; icon: string }) {
   const { href, label, icon } = props;
@@ -403,47 +373,5 @@ function SidebarLink(props: {
       <span>{icon}</span>
       <span>{label}</span>
     </Link>
-  );
-}
-
-function TopTable(props: { title: string; items: TopMover[]; positive: boolean }) {
-  const { title, items } = props;
-  return (
-    <div className="bg-slate-900/80 border border-slate-800 rounded-2xl shadow-sm overflow-hidden">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-slate-800">
-        <h3 className="text-sm font-semibold">{title}</h3>
-        <span className="text-xs text-slate-500">Updated just now</span>
-      </div>
-      <table className="w-full text-xs md:text-sm">
-        <thead className="bg-slate-900">
-          <tr className="text-left text-slate-400">
-            <th className="px-4 py-2">Symbol</th>
-            <th className="px-4 py-2">Name</th>
-            <th className="px-4 py-2 text-right">Price</th>
-            <th className="px-4 py-2 text-right">Change</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((m) => (
-            <tr key={m.symbol} className="border-t border-slate-800">
-              <td className="px-4 py-2 text-sky-300 font-medium">{m.symbol}</td>
-              <td className="px-4 py-2 text-slate-100 truncate">{m.name}</td>
-              <td className="px-4 py-2 text-right text-slate-100">
-                ${m.price.toFixed(2)}
-              </td>
-              <td
-                className={
-                  "px-4 py-2 text-right font-semibold " +
-                  (m.changePct >= 0 ? "text-emerald-400" : "text-rose-400")
-                }
-              >
-                {m.changePct >= 0 ? "+" : ""}
-                {m.changePct.toFixed(2)}%
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
   );
 }
