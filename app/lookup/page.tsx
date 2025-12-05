@@ -151,7 +151,6 @@ export default function LookupPage() {
       const text = await res.text();
 
       if (!res.ok) {
-
         try {
           const errJson = JSON.parse(text);
           throw new Error(
@@ -174,7 +173,21 @@ export default function LookupPage() {
 
       setData(json);
     } catch (e: any) {
-      setError(e.message ?? "Something went wrong");
+      const rawMessage = e?.message ?? "Something went wrong";
+      let display = rawMessage;
+
+      const lower = rawMessage.toLowerCase();
+      if (
+        lower.includes("no data") ||
+        lower.includes("not found") ||
+        lower.includes("invalid") ||
+        lower.includes("lookup failed")
+      ) {
+        display =
+          "I couldn’t find any data for that ticker. Please double-check the symbol, for example NVDA or AAPL.";
+      }
+
+      setError(display);
     } finally {
       setLoading(false);
     }
@@ -214,7 +227,6 @@ export default function LookupPage() {
   return (
     <main className="min-h-screen bg-slate-950/90 backdrop-blur text-slate-100 flex flex-col items-center">
       <div className="w-full max-w-4xl px-4 py-6 md:py-8 space-y-6">
-
         <header className="mb-4 space-y-2">
           <Link
             href="/"
@@ -423,7 +435,6 @@ function PriceChart({ history }: { history: PricePoint[] }) {
     </div>
   );
 }
-
 
 type TickerSearchProps = {
   value: string;
