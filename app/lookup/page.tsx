@@ -124,7 +124,7 @@ export default function LookupPage() {
 
   const isIntradaySelected = INTRADAY_INTERVALS.includes(interval);
 
-  async function runLookup(symbol: string, p: string, i: string) {
+    async function runLookup(symbol: string, p: string, i: string) {
     const cleaned = symbol.trim().toUpperCase();
     if (!cleaned) return;
 
@@ -150,44 +150,45 @@ export default function LookupPage() {
 
       const text = await res.text();
 
+      // If backend fails (invalid ticker, etc.), show a friendly message
       if (!res.ok) {
+        let friendlyMessage =
+          "We couldn’t find data for that ticker. Please check the symbol and try again.";
+
         try {
           const errJson = JSON.parse(text);
-          throw new Error(
-            errJson.error ||
-              errJson.detail ||
-              `Lookup failed (${errJson.source ?? "unknown"})`
-          );
+          const detail = errJson.error || errJson.detail || "";
+          if (
+            typeof detail === "string" &&
+            detail.toLowerCase().includes("rate limit")
+          ) {
+            friendlyMessage =
+              "The data provider is temporarily unavailable. Please try again in a minute.";
+          }
         } catch {
-          throw new Error(
-            `Lookup failed: ${res.status} – ${text.slice(0, 200)}`
-          );
+          // ignore JSON parse errors, keep generic message
         }
+
+        setError(friendlyMessage);
+        setLoading(false);
+        return;
       }
 
       const json = JSON.parse(text) as LookupResponse;
 
       if (json.error) {
-        throw new Error(json.error);
+        setError(
+          "We couldn’t load that ticker right now. Please try again or pick a different symbol."
+        );
+        setLoading(false);
+        return;
       }
 
       setData(json);
     } catch (e: any) {
-      const rawMessage = e?.message ?? "Something went wrong";
-      let display = rawMessage;
-
-      const lower = rawMessage.toLowerCase();
-      if (
-        lower.includes("no data") ||
-        lower.includes("not found") ||
-        lower.includes("invalid") ||
-        lower.includes("lookup failed")
-      ) {
-        display =
-          "I couldn’t find any data for that ticker. Please double-check the symbol, for example NVDA or AAPL.";
-      }
-
-      setError(display);
+      setError(
+        "Something went wrong while contacting the lookup service. Please try again."
+      );
     } finally {
       setLoading(false);
     }
