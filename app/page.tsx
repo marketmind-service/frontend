@@ -167,7 +167,7 @@ export default function HomePage() {
   }
 
   return (
-    <main className="min-h-screen text-slate-100 flex flex-col items-center">
+    <main className="min-h-screen bg-slate-950/90 backdrop-blur text-slate-100 flex flex-col items-center">
       {isMenuOpen && (
         <>
           <div
@@ -241,7 +241,8 @@ export default function HomePage() {
         </>
       )}
 
-      <div className="w-full max-w-6xl px-4 py-6 md:py-8 space-y-8 md:space-y-10">
+      <div className="w-full max-w-6xl px-4 py-6 md:py-8 flex-1 flex flex-col">
+        {/* top nav row (stays near top) */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
@@ -267,73 +268,76 @@ export default function HomePage() {
           </div>
         </div>
 
-        <section className="text-center space-y-5 md:space-y-6">
-          <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
-            Search for a stock to start your analysis
-          </h1>
-          <p className="max-w-3xl mx-auto text-sm md:text-base text-slate-400">
-            Type a question and I’ll route it to stock lookup, technical
-            indicators, news, or sector rotation automatically.
-          </p>
+        {/* main hero content centered vertically */}
+        <div className="flex-1 flex flex-col justify-center space-y-10 md:space-y-12">
+          <section className="text-center space-y-5 md:space-y-6">
+            <h1 className="text-3xl md:text-5xl font-bold tracking-tight">
+              Search for a stock to start your analysis
+            </h1>
+            <p className="max-w-3xl mx-auto text-sm md:text-base text-slate-400">
+              Type a question and I’ll route it to stock lookup, technical
+              indicators, news, or sector rotation automatically.
+            </p>
 
-          <div className="mt-4 flex justify-center">
-            <div className="w-full max-w-3xl flex flex-col gap-2">
-              <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-full px-4 py-2 shadow-sm">
-                <span className="text-slate-400 text-lg">🤖</span>
-                <input
-                  className="flex-1 bg-transparent outline-none text-sm md:text-base text-slate-100 placeholder:text-slate-500"
-                  placeholder='Example: "Summarize NVDA performance over the last year."'
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      handleAsk();
-                    }
-                  }}
-                />
-                <button
-                  onClick={handleAsk}
-                  disabled={!prompt.trim() || loading}
-                  className="text-xs md:text-sm font-medium text-sky-300 hover:text-sky-200 disabled:opacity-40"
-                >
-                  {loading ? "Thinking…" : "Ask"}
-                </button>
-              </div>
-
-              {error && (
-                <div className="text-xs md:text-sm text-red-300 bg-red-950/40 border border-red-700/70 rounded-lg px-3 py-2 text-left">
-                  {error}
+            <div className="mt-4 flex justify-center">
+              <div className="w-full max-w-3xl flex flex-col gap-2">
+                <div className="flex items-center gap-2 bg-slate-900 border border-slate-700 rounded-full px-4 py-2 shadow-sm">
+                  <span className="text-slate-400 text-lg">🤖</span>
+                  <input
+                    className="flex-1 bg-transparent outline-none text-sm md:text-base text-slate-100 placeholder:text-slate-500"
+                    placeholder='Example: "Summarize NVDA performance over the last year."'
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        handleAsk();
+                      }
+                    }}
+                  />
+                  <button
+                    onClick={handleAsk}
+                    disabled={!prompt.trim() || loading}
+                    className="text-xs md:text-sm font-medium text-sky-300 hover:text-sky-200 disabled:opacity-40"
+                  >
+                    {loading ? "Thinking…" : "Ask"}
+                  </button>
                 </div>
-              )}
 
-              {!error && !loading && (
-                <p className="text-xs md:text-sm text-slate-500 text-left">
-                  Ask about a ticker, news, or sector strength. I’ll send you to
-                  the right tool and pre-fill the inputs.
-                </p>
-              )}
+                {error && (
+                  <div className="text-xs md:text-sm text-red-300 bg-red-950/40 border border-red-700/70 rounded-lg px-3 py-2 text-left">
+                    {error}
+                  </div>
+                )}
+
+                {!error && !loading && (
+                  <p className="text-xs md:text-sm text-slate-500 text-left">
+                    Ask about a ticker, news, or sector strength. I’ll send you
+                    to the right tool and pre-fill the inputs.
+                  </p>
+                )}
+              </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section className="space-y-3">
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            <ServiceTile href="/lookup" label="Stock Lookup" icon="🔎" />
-            <ServiceTile href="/watchlist" label="Watchlist" icon="📋" />
-            <ServiceTile href="/sma-ema" label="SMA / EMA Analyzer" icon="📈" />
-            <ServiceTile
-              href="/news-sentiment"
-              label="News & Sentiment"
-              icon="📰"
-            />
-            <ServiceTile
-              href="/sector-rotation"
-              label="Sector Rotation Intelligence"
-              icon="📊"
-            />
-          </div>
-        </section>
+          <section className="space-y-3">
+            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+              <ServiceTile href="/lookup" label="Stock Lookup" icon="🔎" />
+              <ServiceTile href="/watchlist" label="Watchlist" icon="📋" />
+              <ServiceTile href="/sma-ema" label="SMA / EMA Analyzer" icon="📈" />
+              <ServiceTile
+                href="/news-sentiment"
+                label="News & Sentiment"
+                icon="📰"
+              />
+              <ServiceTile
+                href="/sector-rotation"
+                label="Sector Rotation Intelligence"
+                icon="📊"
+              />
+            </div>
+          </section>
+        </div>
       </div>
     </main>
   );
