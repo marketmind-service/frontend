@@ -424,6 +424,13 @@ export default function SectorPage() {
         </section>
 
         <section className="space-y-3 pb-6">
+          {loading && (
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-300">
+              <span className="h-3 w-3 rounded-full border-2 border-sky-400 border-t-transparent animate-spin" />
+              <span>Scanning sector strength and rotation signals…</span>
+            </div>
+          )}
+
           {error && (
             <div className="rounded-md border border-red-500 bg-red-950/40 px-4 py-2 text-sm text-red-200">
               {error}
